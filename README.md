@@ -1,111 +1,257 @@
 # profiled-config
 
-`profiled-config` ambitionne d'apporter aux applications Rust une gestion de
-configuration typée et orientée profils, inspirée de l'expérience proposée par
-Spring.
+`profiled-config` is a small Rust library for typed, profile-based TOML
+configuration, inspired by Spring profiles.
 
-L'objectif est de permettre à une application d'embarquer ses fichiers de
-configuration TOML dans l'exécutable, de sélectionner un ou plusieurs profils
-au démarrage, puis de convertir la configuration obtenue vers une structure
-définie par l'utilisateur.
+Configuration files are embedded in the application binary at compile time. At
+startup, the library loads the default configuration, applies the selected
+profiles in order, resolves environment variables, and deserializes the result
+into a Rust type.
 
-> [!IMPORTANT]
-> Le projet en est au stade de la conception. Il n'est pas encore utilisable et
-> aucune API n'est stabilisée. Les exemples et comportements décrits ci-dessous
-> expriment une direction de travail susceptible d'évoluer.
+> [!WARNING]
+> The project is still at an early stage. The API may change, and the crate is
+> not yet recommended for production use.
 
-## Vision
+## Features
 
-`profiled-config` vise à réunir derrière un point d'entrée unique les capacités
-suivantes :
+- TOML configuration embedded directly in the application binary
+- strongly typed configuration through Serde
+- one or more profiles selected from the command line
+- predictable, ordered profile merging
+- environment variable interpolation
+- optional fallback values for environment variables
+- a `#[profiled_config]` attribute for synchronous and asynchronous entry
+  points
 
-- embarquer dans l'exécutable un dossier complet de fichiers TOML ;
-- choisir les profils actifs à l'aide d'arguments de ligne de commande ;
-- sélectionner et combiner les fichiers correspondant à ces profils ;
-- appliquer les profils dans leur ordre de sélection, les derniers pouvant
-  remplacer les clés définies précédemment ;
-- résoudre des variables d'environnement depuis la configuration avec une
-  syntaxe telle que `${VARIABLE}` ;
-- accepter une valeur par défaut, par exemple `${VARIABLE:default}` ;
-- désérialiser le résultat vers une structure Rust fournie par l'application ;
-- exposer l'ensemble du mécanisme au travers d'une macro appliquée au point
-  d'entrée.
+## Installation
 
-Le résultat recherché est une configuration reproductible, distribuée avec le
-binaire et immédiatement exploitable sous une forme fortement typée.
+Until the first crates.io release, add the library from Git and enable the
+`macros` feature:
 
-## Fonctionnement envisagé
+```toml
+[dependencies]
+profiled_config = { git = "https://github.com/Athlaes/profiled-rust", features = ["macros"] }
+serde = { version = "1", features = ["derive"] }
+```
 
-À terme, la bibliothèque devrait suivre un flux similaire à celui-ci :
+## Quick start
 
-1. les fichiers TOML sont intégrés au binaire pendant la compilation ;
-2. l'application détermine les profils actifs lors de son démarrage ;
-3. les configurations associées sont fusionnées selon l'ordre des profils ;
-4. les expressions faisant référence à l'environnement sont résolues ;
-5. la configuration finale est convertie vers le type attendu par
-   l'application ;
-6. le point d'entrée reçoit une valeur prête à être utilisée.
+Create a `config/default.toml` file at the root of your application:
 
-## Aperçu conceptuel
+```toml
+app_name = "my-service"
+port = 8080
 
-L'expérience développeur recherchée pourrait ressembler à ceci :
+[database]
+url = "${DATABASE_URL:postgres://localhost/my-service}"
+```
+
+Define a matching Rust type and add `#[profiled_config]` to `main`:
 
 ```rust
+use profiled_config::profiled_config;
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
 struct AppConfig {
-    creds: String,
+    app_name: String,
+    port: u16,
+    database: DatabaseConfig,
+}
+
+#[derive(Debug, Deserialize)]
+struct DatabaseConfig {
+    url: String,
 }
 
 #[profiled_config]
-#[actix_web::main]
-async fn main(config: AppConfig) -> std::io::Result<()> {
-    // Démarrage de l'application avec une configuration déjà résolue et typée.
-    todo!()
+fn main(config: AppConfig) {
+    println!("Starting {} on port {}", config.app_name, config.port);
 }
 ```
 
-Cet extrait illustre uniquement l'intention du projet. Le nom de la macro, sa
-syntaxe, son interaction avec les runtimes asynchrones et les conventions de
-nommage des fichiers ou des profils restent à concevoir.
+The annotated `main` function must take the configuration as its only argument.
+`profiled-config` loads and deserializes the configuration before calling it.
 
-## Principes du projet
+Run the application normally to use `config/default.toml`:
 
-- **Typage en premier** : la configuration consommée par l'application doit
-  prendre la forme d'un type Rust explicite.
-- **Comportement déterministe** : l'ordre de résolution et de remplacement des
-  valeurs doit être prévisible et documenté.
-- **Binaire autonome** : les configurations connues à la compilation doivent
-  pouvoir être distribuées avec l'exécutable.
-- **Erreurs compréhensibles** : un profil absent, une variable non résolue ou
-  une configuration invalide doit produire un diagnostic utile.
-- **Intégration légère** : l'ajout de la bibliothèque à une application doit
-  demander le moins de code d'infrastructure possible.
+```shell
+cargo run
+```
 
-## État du projet
+Because the `config` directory is embedded at compile time, configuration file
+changes require rebuilding the application.
 
-Le périmètre fonctionnel, les choix d'architecture et l'API publique sont
-encore ouverts à la discussion. Parmi les sujets à préciser figurent notamment
-les conventions de profils, les règles exactes de fusion, la résolution des
-variables, les diagnostics de compilation et d'exécution, ainsi que la
-compatibilité avec les différents runtimes Rust.
+## Using profiles
 
-Aucune version publiée ne doit pour l'instant être considérée comme prête pour
-un usage en production.
+Add one TOML file per profile next to `default.toml`:
 
-## Contribuer
+```text
+config/
+├── default.toml
+├── development.toml
+└── local.toml
+```
 
-Le projet a vocation à être développé ouvertement. Les retours sur les cas
-d'usage, les attentes ergonomiques et les choix de conception sont les
-bienvenus, en particulier tant que les fondations ne sont pas figées.
+For example, `config/development.toml` can override only the values needed for
+development:
 
-Avant de proposer une implémentation importante, il est préférable d'ouvrir une
-discussion décrivant le besoin, le comportement attendu et les compromis
-envisagés.
+```toml
+port = 3000
 
-## Licence
+[database]
+url = "postgres://localhost/my-service-dev"
+```
 
-Une licence open source sera choisie avant la première publication du projet.
+Select profiles with `--profiles` (or `-p`):
 
-## Inspiration
+```shell
+cargo run -- --profiles development
+```
 
-Le projet s'inspire des configurations par profils de Spring, sans être affilié
-à Spring ni chercher à en reproduire toute l'API.
+Multiple profiles can be provided as a comma-separated list:
+
+```shell
+cargo run -- --profiles development,local
+```
+
+The files are applied from left to right:
+
+1. `default.toml`
+2. `development.toml`
+3. `local.toml`
+
+Later profiles override earlier ones. TOML tables are merged recursively;
+scalar values and arrays are replaced. A profile that cannot be loaded is
+logged and skipped.
+
+## Environment variables
+
+Environment expressions can be used in any TOML string, including strings
+nested in tables or arrays.
+
+Use `${VARIABLE}` when the variable is required:
+
+```toml
+api_key = "${API_KEY}"
+```
+
+Use `${VARIABLE:fallback}` to provide a value when the variable is not set:
+
+```toml
+host = "${HOST:127.0.0.1}"
+```
+
+Loading fails if a required environment variable is missing.
+
+## Macro attributes
+
+The `#[profiled_config]` macro currently supports one optional attribute:
+`before_load`.
+
+### `before_load`
+
+`before_load` specifies a synchronous, zero-argument function to call
+immediately before command-line arguments and configuration files are loaded.
+It is useful for setting up logging or preparing environment variables needed
+by the configuration.
+
+```rust
+use profiled_config::profiled_config;
+use serde::Deserialize;
+
+#[derive(Deserialize)]
+struct AppConfig {
+    app_name: String,
+}
+
+fn initialize() {
+    env_logger::init();
+}
+
+#[profiled_config(before_load = initialize)]
+fn main(config: AppConfig) {
+    println!("{}", config.app_name);
+}
+```
+
+A qualified function path is also accepted:
+
+```rust
+#[profiled_config(before_load = startup::initialize)]
+fn main(config: AppConfig) {
+    // ...
+}
+```
+
+No other macro attributes are currently available. Unknown attributes and
+additional tokens produce a compile-time error.
+
+## Async runtimes
+
+The macro supports `async fn main` and preserves other attributes placed below
+it. This allows runtime macros to be used on the generated entry point:
+
+```rust
+#[profiled_config(before_load = initialize)]
+#[tokio::main]
+async fn main(config: AppConfig) {
+    // ...
+}
+```
+
+Keep `#[profiled_config]` above the runtime attribute.
+
+## Loading without the attribute macro
+
+The configuration can also be loaded directly. In that case, the `macros`
+feature is not required:
+
+```toml
+[dependencies]
+profiled_config = { git = "https://github.com/Athlaes/profiled-rust" }
+serde = { version = "1", features = ["derive"] }
+```
+
+```rust
+use serde::Deserialize;
+
+#[derive(Deserialize)]
+struct AppConfig {
+    app_name: String,
+}
+
+fn main() {
+    let config: AppConfig = profiled_config::load_config!();
+    println!("{}", config.app_name);
+}
+```
+
+## How loading works
+
+At startup, `profiled-config`:
+
+1. reads the embedded `config/default.toml`;
+2. reads each selected `<profile>.toml` file;
+3. merges the files in profile order;
+4. resolves environment expressions;
+5. deserializes the result into the type expected by `main`.
+
+Invalid default configuration, unresolved required environment variables, and
+deserialization errors stop the application with an error.
+
+## Contributing and feedback
+
+Feedback, ideas, bug reports, and real-world use cases are very welcome. I hope
+to keep improving this project and let it grow with the needs of the people
+using it, so please feel free to open an issue or start a discussion—even a
+small suggestion can help shape what comes next.
+
+## License
+
+This project is available under the [MIT License](LICENCE).
+
+## Acknowledgements
+
+The project is inspired by Spring's profile-based configuration model. It is
+not affiliated with Spring and does not aim to reproduce its complete API.
