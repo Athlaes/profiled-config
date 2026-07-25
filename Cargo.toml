@@ -1,0 +1,12 @@
+[package]
+name = "profiled_config"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.6.2", features = ["derive"] }
+include_dir = "0.7.4"
+log = "0.4.33"
+regex = "1.13.1"
+serde_core = "1.0.229"
+toml = "1.1.3"

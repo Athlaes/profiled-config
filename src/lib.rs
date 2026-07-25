@@ -1,0 +1,59 @@
+use std::fmt::Display;
+
+use clap::Parser;
+use include_dir::Dir;
+
+#[doc(hidden)]
+pub use include_dir;
+use serde_core::de::DeserializeOwned;
+
+mod loader;
+mod merger;
+mod processor;
+
+enum ConfigError {
+    FileNotFound(String),
+    ContentUtf8Error(String),
+    ParseError(toml::de::Error),
+}
+
+impl Display for ConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConfigError::FileNotFound(error) => write!(f, "{}", error),
+            ConfigError::ContentUtf8Error(error) => write!(f, "{}", error),
+            ConfigError::ParseError(error) => write!(f, "{}", error),
+        }
+    }
+}
+
+#[derive(Parser)]
+#[command(version, about, long_about = "")]
+struct ConfigArgs {
+    #[arg(short, long, value_delimiter = ',')]
+    profiles: Vec<String>,
+}
+
+#[macro_export]
+macro_rules! load_config {
+    () => {{
+        use $crate::include_dir;
+
+        static CONFIG_FOLDER: include_dir::Dir<'static> =
+            include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
+
+        $crate::load_config_from_dir(&CONFIG_FOLDER)
+    }};
+}
+
+#[doc(hidden)]
+pub fn load_config_from_dir<T>(config_folder: &Dir<'_>) -> T
+where
+    T: DeserializeOwned,
+{
+    let profiles = ConfigArgs::parse().profiles;
+    let files_content = loader::load_values(config_folder, &profiles);
+    let merged_content = merger::merge_values(&files_content);
+    let processed_content = processor::compute_table(&merged_content);
+    T::deserialize(processed_content).expect("Couldn't deserialize configuration")
+}
