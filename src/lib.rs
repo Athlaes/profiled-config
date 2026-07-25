@@ -5,6 +5,9 @@ use include_dir::Dir;
 
 #[doc(hidden)]
 pub use include_dir;
+#[cfg(feature = "macros")]
+pub use profiled_config_macros::profiled_config;
+
 use serde_core::de::DeserializeOwned;
 
 mod loader;
