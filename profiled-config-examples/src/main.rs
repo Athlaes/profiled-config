@@ -13,9 +13,12 @@ struct Profile {
     pub name: String,
 }
 
-#[profiled_config]
-fn main(config: Config) {
+fn init_logger() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+}
+
+#[profiled_config(before_load = init_logger)]
+fn main(config: Config) {
     info!("Folder loaded");
     assert_eq!("1.0.0", config.app_version);
     assert_eq!("TestApp", config.profile.name);

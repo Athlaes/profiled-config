@@ -2,25 +2,25 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{FnArg, ItemFn, PatType, parse_macro_input, spanned::Spanned};
 
+use crate::args::ProfiledConfigArgs;
+
+mod args;
+
 #[proc_macro_attribute]
 pub fn profiled_config(attr: TokenStream, item: TokenStream) -> TokenStream {
-    if !attr.is_empty() {
-        return syn::Error::new(
-            proc_macro2::Span::call_site(),
-            "`profiled_config` does not accept arguments",
-        )
-        .to_compile_error()
-        .into();
-    }
+    let attributes = parse_macro_input!(attr as ProfiledConfigArgs);
 
     let function = parse_macro_input!(item as ItemFn);
 
-    expand_profiled_config(function)
+    expand_profiled_config(function, attributes)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
 
-fn expand_profiled_config(function: ItemFn) -> syn::Result<proc_macro2::TokenStream> {
+fn expand_profiled_config(
+    function: ItemFn,
+    args: ProfiledConfigArgs,
+) -> syn::Result<proc_macro2::TokenStream> {
     if function.sig.ident != "main" {
         return Err(syn::Error::new(
             function.sig.ident.span(),
@@ -69,6 +69,12 @@ fn expand_profiled_config(function: ItemFn) -> syn::Result<proc_macro2::TokenStr
 
     let asyncness = &function.sig.asyncness;
 
+    let before_load = &args.before_load.map(|f| {
+        quote! {
+            #f();
+        }
+    });
+
     Ok(quote! {
         #asyncness fn #inner_name(
             #config_pattern: #config_type
@@ -78,6 +84,8 @@ fn expand_profiled_config(function: ItemFn) -> syn::Result<proc_macro2::TokenStr
 
         #(#attributes)*
         #visibility #asyncness fn main() #output {
+            #before_load
+
             let config: #config_type = profiled_config::load_config!();
 
             #call

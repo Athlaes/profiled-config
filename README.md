@@ -26,8 +26,7 @@ suivantes :
   remplacer les clés définies précédemment ;
 - résoudre des variables d'environnement depuis la configuration avec une
   syntaxe telle que `${VARIABLE}` ;
-- accepter une valeur par défaut, par exemple `${VARIABLE:-default}` ;
-- permettre d'écrire un caractère `$` littéral avec `$$` ;
+- accepter une valeur par défaut, par exemple `${VARIABLE:default}` ;
 - désérialiser le résultat vers une structure Rust fournie par l'application ;
 - exposer l'ensemble du mécanisme au travers d'une macro appliquée au point
   d'entrée.
