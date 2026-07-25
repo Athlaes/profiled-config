@@ -21,7 +21,7 @@ fn compute_any(value: &Value) -> Value {
 }
 
 fn compute_string(val: &str) -> String {
-    let regxp = regex::Regex::new(r"\$\{([:a-zA-Z0-9_-]*)\}")
+    let regxp = regex::Regex::new(r"\$\{([:/a-zA-Z0-9_-]*)\}")
         .unwrap_or_else(|e| panic!("Couldn't parse regex: {}", e));
     let mut value = val.to_string();
     for capture in regxp.captures_iter(val) {
@@ -38,12 +38,10 @@ fn compute_array(arr: &[Value]) -> Vec<Value> {
 
 fn compute_env_var(var_name: &str) -> String {
     let splitted_values = var_name.split(':').collect::<Vec<&str>>();
-    match splitted_values.len() {
-        2 => env::var(splitted_values[0]).unwrap_or(splitted_values[1].to_string()),
-        _ => {
-            env::var(splitted_values[0]).unwrap_or_else(|e| panic!("Couldn't find env var: {}", e))
-        }
+    if splitted_values.len() >= 2 {
+        return env::var(splitted_values[0]).unwrap_or(splitted_values[1..].join(":"));
     }
+    env::var(splitted_values[0]).unwrap_or_else(|e| panic!("Couldn't find env var: {}", e))
 }
 
 #[cfg(test)]
@@ -72,6 +70,9 @@ mod tests {
 
         [clients.aia]
         url = "${SERVICE_PROTOCOL}://${SERVICE_HOST}:${SERVICE_PORT}"
+
+        [database]
+        url = "${DATABASE_URL:postres://localhost:5432}"
         "#;
 
     fn init_env() {
@@ -100,7 +101,7 @@ mod tests {
         let result = compute_table(&value);
         assert_eq!(
             result.to_string(),
-            "[clients.aia]\nurl = \"http://localhost:8080\"\n\n[profile]\nname = \"test\"\n"
+            "[clients.aia]\nurl = \"http://localhost:8080\"\n\n[database]\nurl = \"postres://localhost:5432\"\n\n[profile]\nname = \"test\"\n"
         );
     }
 
