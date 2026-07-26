@@ -29,12 +29,12 @@ fn get_file_values(config_folder: &Dir<'_>, path: &str) -> Result<Table, ConfigE
             .get_file(path)
             .ok_or(ConfigError::FileNotFound(format!(
                 "File with path {} not found",
-                path.to_string()
+                path
             )))?
             .contents_utf8()
             .ok_or(ConfigError::ContentUtf8Error(
                 "Error getting file content utf8".to_string(),
             ))?,
     )
-    .map_err(|e| ConfigError::ParseError(e))
+    .map_err(ConfigError::ParseError)
 }
