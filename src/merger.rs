@@ -1,9 +1,9 @@
 use toml::{Table, Value};
 
-pub fn merge_values(files_content: &Vec<Table>) -> Table {
+pub fn merge_values(files_content: &[Table]) -> Table {
     files_content
         .iter()
-        .fold(Table::new(), |acc, content| merge_two_x_two(&acc, &content))
+        .fold(Table::new(), |acc, content| merge_two_x_two(&acc, content))
 }
 
 fn merge_two_x_two(a: &Table, b: &Table) -> Table {

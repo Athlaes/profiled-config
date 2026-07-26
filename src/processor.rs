@@ -33,7 +33,7 @@ fn compute_string(val: &str) -> String {
 }
 
 fn compute_array(arr: &[Value]) -> Vec<Value> {
-    arr.iter().map(|v| compute_any(v)).collect()
+    arr.iter().map(compute_any).collect()
 }
 
 fn compute_env_var(var_name: &str) -> String {

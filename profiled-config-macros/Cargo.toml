@@ -2,7 +2,10 @@
 name = "profiled_config_macros"
 version = "0.1.0"
 edition = "2024"
-publish = false
+description = "Procedural macros for profiled_config"
+license = "MIT"
+repository = "https://github.com/Athlaes/profiled-rust"
+publish = ["crates-io"]
 
 [lib]
 proc-macro = true
