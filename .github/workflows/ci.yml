@@ -91,14 +91,13 @@ jobs:
             version="$manifest_version"
           elif [[ "$manifest_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             version="$manifest_version-SNAPSHOT"
+            sed -i -E '0,/^version = "[^"]+"/s//version = "'"$version"'"/' Cargo.toml
+            sed -i -E '/^profiled_config_macros = \{/,/^\}/ s/^    version = "[^"]+"/    version = "'"$version"'"/' Cargo.toml
+            sed -i -E '0,/^version = "[^"]+"/s//version = "'"$version"'"/' profiled-config-macros/Cargo.toml
           else
             echo "::error::Invalid package version '$manifest_version'"
             exit 1
           fi
-
-          sed -i -E '0,/^version = "[^"]+"/s//version = "'"$version"'"/' Cargo.toml
-          sed -i -E '/^profiled_config_macros = \{/,/^\}/ s/^    version = "[^"]+"/    version = "'"$version"'"/' Cargo.toml
-          sed -i -E '0,/^version = "[^"]+"/s//version = "'"$version"'"/' profiled-config-macros/Cargo.toml
 
           cargo check --workspace --all-features
           echo "version=$version" >> "$GITHUB_OUTPUT"

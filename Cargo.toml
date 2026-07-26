@@ -3,7 +3,7 @@ members = [".", "profiled-config-macros", "profiled-config-examples"]
 
 [package]
 name = "profiled_config"
-version = "1.0.0-SNAPSHOT "
+version = "1.0.0-SNAPSHOT"
 edition = "2024"
 description = "Typed, profile-based TOML configuration for Rust applications"
 license = "MIT"
