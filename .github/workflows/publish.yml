@@ -72,17 +72,17 @@ jobs:
               exit 1
             fi
 
-            manifest_version="$(
-              sed -n '/^\[package\]/,/^\[/ s/^version = "\([^"]*\)"/\1/p' Cargo.toml |
+            workspace_version="$(
+              sed -n '/^\[workspace.package\]/,/^\[/ s/^version = "\([^"]*\)"/\1/p' Cargo.toml |
                 head -n 1
             )"
 
-            if [[ ! "$manifest_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-SNAPSHOT)?$ ]]; then
-              echo "::error::Invalid package version '$manifest_version'"
+            if [[ ! "$workspace_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
+              echo "::error::Invalid workspace snapshot version '$workspace_version'"
               exit 1
             fi
 
-            release_version="${manifest_version%-SNAPSHOT}"
+            release_version="${workspace_version%-SNAPSHOT}"
             latest_tag="$(stable_tags | head -n 1)"
 
             if [[ -n "$latest_tag" ]] &&
@@ -92,15 +92,14 @@ jobs:
               exit 1
             fi
 
-            sed -i -E '0,/^version = "[^"]+"/s//version = "'"$release_version"'"/' Cargo.toml
-            sed -i -E '/^profiled_config_macros = \{/,/^\}/ s/^    version = "[^"]+"/    version = "'"$release_version"'"/' Cargo.toml
-            sed -i -E '0,/^version = "[^"]+"/s//version = "'"$release_version"'"/' profiled-config-macros/Cargo.toml
+            sed -i -E '/^\[workspace.package\]/,/^\[/ s/^version = "[^"]+"/version = "'"$release_version"'"/' Cargo.toml
+            sed -i -E '/^profiled_config_macros = \{/,/^\}/ s|^    path = "profiled-config-macros",$|    path = "profiled-config-macros",\n    version = "='"$release_version"'",|' Cargo.toml
 
             cargo check --workspace --all-features
 
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add Cargo.toml Cargo.lock profiled-config-macros/Cargo.toml
+            git add Cargo.toml Cargo.lock
 
             if ! git diff --cached --quiet; then
               git commit -m "chore(release): $release_version"
@@ -196,12 +195,12 @@ jobs:
           git checkout --force -B develop origin/develop
 
           develop_version="$(
-            sed -n '/^\[package\]/,/^\[/ s/^version = "\([^"]*\)"/\1/p' Cargo.toml |
+            sed -n '/^\[workspace.package\]/,/^\[/ s/^version = "\([^"]*\)"/\1/p' Cargo.toml |
               head -n 1
           )"
 
-          if [[ ! "$develop_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-SNAPSHOT)?$ ]]; then
-            echo "::error::Invalid develop package version '$develop_version'"
+          if [[ ! "$develop_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
+            echo "::error::Invalid develop workspace snapshot version '$develop_version'"
             exit 1
           fi
 
@@ -218,15 +217,13 @@ jobs:
             exit 0
           fi
 
-          sed -i -E '0,/^version = "[^"]+"/s//version = "'"$next_snapshot"'"/' Cargo.toml
-          sed -i -E '/^profiled_config_macros = \{/,/^\}/ s/^    version = "[^"]+"/    version = "'"$next_snapshot"'"/' Cargo.toml
-          sed -i -E '0,/^version = "[^"]+"/s//version = "'"$next_snapshot"'"/' profiled-config-macros/Cargo.toml
+          sed -i -E '/^\[workspace.package\]/,/^\[/ s/^version = "[^"]+"/version = "'"$next_snapshot"'"/' Cargo.toml
 
           cargo check --workspace --all-features
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Cargo.toml Cargo.lock profiled-config-macros/Cargo.toml
+          git add Cargo.toml Cargo.lock
           git commit -m "chore: prepare $next_snapshot"
           git push origin HEAD:develop
 

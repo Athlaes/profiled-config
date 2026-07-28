@@ -70,36 +70,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install the stable Rust toolchain
-        run: rustup toolchain install stable --profile minimal
-
-      - name: Use the stable Rust toolchain
-        run: rustup default stable
-
-      - name: Calculate the snapshot version
+      - name: Read the snapshot version
         id: version
         shell: bash
         run: |
           set -euo pipefail
 
-          manifest_version="$(
-            sed -n '/^\[package\]/,/^\[/ s/^version = "\([^"]*\)"/\1/p' Cargo.toml |
+          version="$(
+            sed -n '/^\[workspace.package\]/,/^\[/ s/^version = "\([^"]*\)"/\1/p' Cargo.toml |
               head -n 1
           )"
 
-          if [[ "$manifest_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
-            version="$manifest_version"
-          elif [[ "$manifest_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            version="$manifest_version-SNAPSHOT"
-            sed -i -E '0,/^version = "[^"]+"/s//version = "'"$version"'"/' Cargo.toml
-            sed -i -E '/^profiled_config_macros = \{/,/^\}/ s/^    version = "[^"]+"/    version = "'"$version"'"/' Cargo.toml
-            sed -i -E '0,/^version = "[^"]+"/s//version = "'"$version"'"/' profiled-config-macros/Cargo.toml
-          else
-            echo "::error::Invalid package version '$manifest_version'"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
+            echo "::error::Invalid workspace snapshot version '$version'"
             exit 1
           fi
 
-          cargo check --workspace --all-features
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "### Snapshot $version" >> "$GITHUB_STEP_SUMMARY"
           echo "Built from \`$GITHUB_SHA\` on \`develop\`." >> "$GITHUB_STEP_SUMMARY"
