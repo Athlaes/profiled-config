@@ -305,7 +305,7 @@ dependencies = [
  "clap",
  "include_dir",
  "log",
- "profiled_config_macros",
+ "profiled_config_macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex",
  "serde_core",
  "toml",
