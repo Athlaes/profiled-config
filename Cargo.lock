@@ -321,6 +321,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "profiled_config_macros"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c4ca6e09d974423369d40cb8b0863d4c240775d98b6fdc76b8c7ab8ba2ab61d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.118",
+]
+
+[[package]]
 name = "profiled_config_test"
 version = "0.1.0"
 dependencies = [
