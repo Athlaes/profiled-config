@@ -1,11 +1,25 @@
 [workspace]
-members = [".", "profiled-config-macros", "profiled-config-examples"]
+members = [".", "profiled-config-macros", "profiled-config-test"]
+default-members = [
+    ".",
+    "profiled-config-macros",
+    "profiled-config-test",
+]
+
+[workspace.package]
+version = "0.1.0-SNAPSHOT"
 
 [package]
 name = "profiled_config"
-version = "0.1.0"
+version.workspace = true
 edition = "2024"
-publish = true
+description = "Typed, profile-based TOML configuration for Rust applications"
+license = "MIT"
+repository = "https://github.com/Athlaes/profiled-rust"
+readme = "README.md"
+keywords = ["configuration", "profiles", "serde", "toml"]
+categories = ["config"]
+publish = ["crates-io"]
 
 [features]
 default = []

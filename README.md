@@ -1,5 +1,7 @@
 # profiled-config
 
+[![CI](https://github.com/Athlaes/profiled-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/Athlaes/profiled-rust/actions/workflows/ci.yml)
+
 `profiled-config` is a small Rust library for typed, profile-based TOML
 configuration, inspired by Spring profiles.
 
@@ -25,13 +27,10 @@ into a Rust type.
 
 ## Installation
 
-Until the first crates.io release, add the library from Git and enable the
-`macros` feature:
+Add the library from crates.io and enable the `macros` feature:
 
-```toml
-[dependencies]
-profiled_config = { git = "https://github.com/Athlaes/profiled-rust", features = ["macros"] }
-serde = { version = "1", features = ["derive"] }
+```shell
+cargo add profile_config --features macros
 ```
 
 ## Quick start
@@ -207,10 +206,8 @@ Keep `#[profiled_config]` above the runtime attribute.
 The configuration can also be loaded directly. In that case, the `macros`
 feature is not required:
 
-```toml
-[dependencies]
-profiled_config = { git = "https://github.com/Athlaes/profiled-rust" }
-serde = { version = "1", features = ["derive"] }
+```shell
+cargo add profiled_config
 ```
 
 ```rust
@@ -239,6 +236,28 @@ At startup, `profiled-config`:
 
 Invalid default configuration, unresolved required environment variables, and
 deserialization errors stop the application with an error.
+
+## Development and releases
+
+Feature branches are merged into `develop`. Every push to `develop` produces a
+source snapshot artifact using the version declared once in
+`[workspace.package]`, such as `0.3.0-SNAPSHOT`. Both published crates inherit
+that version, which remains unchanged throughout the development cycle. The
+regular CI only reads it and never rewrites a manifest. Snapshots are retained
+by GitHub Actions for 14 days; they do not create a Git tag, a GitHub Release,
+or a crates.io version.
+
+Merging `develop` into `main` removes the `-SNAPSHOT` suffix only in the release
+checkout and creates the corresponding stable release (`0.3.0-SNAPSHOT`
+becomes `0.3.0`). The workflow also injects the crates.io version of the local
+proc-macro dependency in that checkout. Once the release is complete, it
+increments the minor component, resets the patch to zero, and updates
+`develop` once with the next workspace snapshot version (`0.4.0-SNAPSHOT`).
+Patch increments are reserved for a future hotfix workflow.
+
+Developers do not edit package versions during day-to-day work. The release
+workflow creates the `X.Y.Z` tag and GitHub Release, then publishes the
+proc-macro followed by the main crate.
 
 ## Contributing and feedback
 
