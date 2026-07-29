@@ -1,0 +1,13 @@
+app_version = "1.0.0"
+
+[profile]
+name = "default"
+
+[tabs_test]
+tabs_1 = [0, 1]
+tabs_2 = ["hello", "work"]
+map_inline = { "key1" = "value1", "key2" = "value2" }
+
+[tabs_test.map]
+key1 = "value1"
+key2 = "value2"
