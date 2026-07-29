@@ -26,10 +26,29 @@ jobs:
       id-token: write
 
     steps:
+      - name: Generate the release app token
+        id: release_app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+
       - name: Check out the main branch
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
+          token: ${{ steps.release_app.outputs.token }}
+
+      - name: Configure the release app identity
+        env:
+          GH_TOKEN: ${{ steps.release_app.outputs.token }}
+          RELEASE_APP_SLUG: ${{ steps.release_app.outputs.app-slug }}
+        shell: bash
+        run: |
+          release_app_user_id="$(gh api "/users/$RELEASE_APP_SLUG[bot]" --jq .id)"
+          git config user.name "$RELEASE_APP_SLUG[bot]"
+          git config user.email "$release_app_user_id+$RELEASE_APP_SLUG[bot]@users.noreply.github.com"
 
       - name: Install the stable Rust toolchain
         run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
@@ -60,6 +79,29 @@ jobs:
               break
             fi
           done < <(stable_tags)
+
+          if [[ -z "$resume_tag" ]]; then
+            current_workspace_version="$(
+              sed -n '/^\[workspace.package\]/,/^\[/ s/^version = "\([^"]*\)"/\1/p' Cargo.toml |
+                head -n 1
+            )"
+
+            if [[ "$current_workspace_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
+              current_release_version="${current_workspace_version%-SNAPSHOT}"
+
+              if git rev-parse --verify --quiet "refs/tags/$current_release_version" >/dev/null; then
+                current_tag_commit="$(git rev-list -n 1 "$current_release_version")"
+                current_tag_parent="$(git rev-parse "$current_tag_commit^" 2>/dev/null || true)"
+
+                if git merge-base --is-ancestor "$current_tag_commit" "$GITHUB_SHA" ||
+                  { [[ -n "$current_tag_parent" ]] &&
+                    git merge-base --is-ancestor "$current_tag_parent" "$GITHUB_SHA"; }; then
+                  resume_tag="$current_release_version"
+                  echo "Release $resume_tag is already tagged from this main history; resuming post-release steps."
+                fi
+              fi
+            fi
+          fi
 
           if [[ -n "$resume_tag" ]]; then
             release_version="$resume_tag"
@@ -97,8 +139,6 @@ jobs:
 
             cargo check --workspace --all-features
 
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add Cargo.toml Cargo.lock
 
             if ! git diff --cached --quiet; then
@@ -221,8 +261,6 @@ jobs:
 
           cargo check --workspace --all-features
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Cargo.toml Cargo.lock
           git commit -m "chore: prepare $next_snapshot"
           git push origin HEAD:develop

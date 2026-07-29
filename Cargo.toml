@@ -7,7 +7,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.1.0-SNAPSHOT"
+version = "0.1.0"
 
 [package]
 name = "profiled_config"
@@ -15,7 +15,7 @@ version.workspace = true
 edition = "2024"
 description = "Typed, profile-based TOML configuration for Rust applications"
 license = "MIT"
-repository = "https://github.com/Athlaes/profiled-rust"
+repository = "https://github.com/Athlaes/profiled-config"
 readme = "README.md"
 keywords = ["configuration", "profiles", "serde", "toml"]
 categories = ["config"]

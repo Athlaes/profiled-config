@@ -4,7 +4,7 @@ version.workspace = true
 edition = "2024"
 description = "Procedural macros for profiled_config"
 license = "MIT"
-repository = "https://github.com/Athlaes/profiled-rust"
+repository = "https://github.com/Athlaes/profiled-config"
 publish = ["crates-io"]
 
 [lib]
