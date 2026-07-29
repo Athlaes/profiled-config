@@ -7,7 +7,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.1.0-SNAPSHOT"
+version = "0.1.0"
 
 [package]
 name = "profiled_config"
@@ -35,5 +35,6 @@ toml = "1.1.3"
 
 profiled_config_macros = {
     path = "profiled-config-macros",
+    version = "=0.1.0",
     optional = true
 }
