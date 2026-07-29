@@ -30,6 +30,17 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
+          token: ${{ steps.release_app.outputs.token }}
+
+      - name: Configure the release app identity
+        env:
+          GH_TOKEN: ${{ steps.release_app.outputs.token }}
+          RELEASE_APP_SLUG: ${{ steps.release_app.outputs.app-slug }}
+        shell: bash
+        run: |
+          release_app_user_id="$(gh api "/users/$RELEASE_APP_SLUG[bot]" --jq .id)"
+          git config user.name "$RELEASE_APP_SLUG[bot]"
+          git config user.email "$release_app_user_id+$RELEASE_APP_SLUG[bot]@users.noreply.github.com"
 
       - name: Install the stable Rust toolchain
         run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
@@ -49,20 +60,35 @@ jobs:
               true
           }
 
+          workspace_version="$(
+            sed -n '/^\[workspace.package\]/,/^\[/ s/^version = "\([^"]*\)"/\1/p' Cargo.toml |
+              head -n 1
+          )"
+
+          if [[ "$workspace_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
+            release_version="${workspace_version%-SNAPSHOT}"
+          elif [[ "$workspace_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            release_version="$workspace_version"
+          else
+            echo "::error::Invalid workspace release version '$workspace_version'; expected X.Y.Z or X.Y.Z-SNAPSHOT"
+            exit 1
+          fi
+
           resume_tag=""
-          while IFS= read -r tag; do
-            [[ -z "$tag" ]] && continue
-            tag_commit="$(git rev-list -n 1 "$tag")"
+          if git rev-parse --verify --quiet "refs/tags/$release_version" >/dev/null; then
+            tag_commit="$(git rev-list -n 1 "$release_version")"
             tag_parent="$(git rev-parse "$tag_commit^" 2>/dev/null || true)"
 
-            if [[ "$tag_commit" == "$GITHUB_SHA" || "$tag_parent" == "$GITHUB_SHA" ]]; then
-              resume_tag="$tag"
-              break
+            if [[ "$tag_commit" == "$GITHUB_SHA" || "$tag_parent" == "$GITHUB_SHA" ]] ||
+              git merge-base --is-ancestor "$tag_commit" "$GITHUB_SHA" ||
+              { [[ -n "$tag_parent" ]] &&
+                git merge-base --is-ancestor "$tag_parent" "$GITHUB_SHA"; }; then
+              resume_tag="$release_version"
+              echo "Release $resume_tag is already tagged from this main history; resuming post-release steps."
             fi
-          done < <(stable_tags)
+          fi
 
           if [[ -n "$resume_tag" ]]; then
-            release_version="$resume_tag"
             git checkout --detach "$resume_tag"
             echo "Resuming release $release_version from tag $resume_tag."
           else
@@ -72,17 +98,6 @@ jobs:
               exit 1
             fi
 
-            workspace_version="$(
-              sed -n '/^\[workspace.package\]/,/^\[/ s/^version = "\([^"]*\)"/\1/p' Cargo.toml |
-                head -n 1
-            )"
-
-            if [[ ! "$workspace_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
-              echo "::error::Invalid workspace snapshot version '$workspace_version'"
-              exit 1
-            fi
-
-            release_version="${workspace_version%-SNAPSHOT}"
             latest_tag="$(stable_tags | head -n 1)"
 
             if [[ -n "$latest_tag" ]] &&
@@ -93,12 +108,16 @@ jobs:
             fi
 
             sed -i -E '/^\[workspace.package\]/,/^\[/ s/^version = "[^"]+"/version = "'"$release_version"'"/' Cargo.toml
-            sed -i -E '/^profiled_config_macros = \{/,/^\}/ s|^    path = "profiled-config-macros",$|    path = "profiled-config-macros",\n    version = "='"$release_version"'",|' Cargo.toml
+
+            if sed -n '/^profiled_config_macros = \{/,/^\}/p' Cargo.toml |
+              grep -q '^    version = '; then
+              sed -i -E '/^profiled_config_macros = \{/,/^\}/ s|^    version = "[^"]+",$|    version = "='"$release_version"'",|' Cargo.toml
+            else
+              sed -i -E '/^profiled_config_macros = \{/,/^\}/ s|^    path = "profiled-config-macros",$|    path = "profiled-config-macros",\n    version = "='"$release_version"'",|' Cargo.toml
+            fi
 
             cargo check --workspace --all-features
 
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add Cargo.toml Cargo.lock
 
             if ! git diff --cached --quiet; then
@@ -221,8 +240,6 @@ jobs:
 
           cargo check --workspace --all-features
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Cargo.toml Cargo.lock
           git commit -m "chore: prepare $next_snapshot"
           git push origin HEAD:develop
