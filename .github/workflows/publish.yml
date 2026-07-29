@@ -218,12 +218,15 @@ jobs:
               head -n 1
           )"
 
-          if [[ ! "$develop_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
-            echo "::error::Invalid develop workspace snapshot version '$develop_version'"
+          if [[ "$develop_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
+            develop_base="${develop_version%-SNAPSHOT}"
+          elif [[ "$develop_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            develop_base="$develop_version"
+          else
+            echo "::error::Invalid develop workspace version '$develop_version'; expected X.Y.Z or X.Y.Z-SNAPSHOT"
             exit 1
           fi
 
-          develop_base="${develop_version%-SNAPSHOT}"
           if [[ "$develop_base" != "$next_base" ]] &&
             [[ "$(printf '%s\n%s\n' "$next_base" "$develop_base" | sort -V | tail -n 1)" == "$develop_base" ]]; then
             next_base="$develop_base"
@@ -231,16 +234,24 @@ jobs:
 
           next_snapshot="$next_base-SNAPSHOT"
 
-          if [[ "$develop_version" == "$next_snapshot" ]]; then
-            echo "develop already uses $next_snapshot; skipping."
-            exit 0
-          fi
-
           sed -i -E '/^\[workspace.package\]/,/^\[/ s/^version = "[^"]+"/version = "'"$next_snapshot"'"/' Cargo.toml
+
+          sed -i -E '/^profiled_config_macros = \{/,/^\}/{/^    version = /d;}' Cargo.toml
+
+          if ! sed -n '/^profiled_config_macros = \{/,/^\}/p' Cargo.toml |
+            grep -q '^    path = "profiled-config-macros",$'; then
+            sed -i -E '/^profiled_config_macros = \{$/a\    path = "profiled-config-macros",' Cargo.toml
+          fi
 
           cargo check --workspace --all-features
 
           git add Cargo.toml Cargo.lock
+
+          if git diff --cached --quiet; then
+            echo "develop already uses $next_snapshot with local workspace dependencies; skipping."
+            exit 0
+          fi
+
           git commit -m "chore: prepare $next_snapshot"
           git push origin HEAD:develop
 
