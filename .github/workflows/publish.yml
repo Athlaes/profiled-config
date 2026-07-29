@@ -68,43 +68,35 @@ jobs:
               true
           }
 
+          workspace_version="$(
+            sed -n '/^\[workspace.package\]/,/^\[/ s/^version = "\([^"]*\)"/\1/p' Cargo.toml |
+              head -n 1
+          )"
+
+          if [[ "$workspace_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
+            release_version="${workspace_version%-SNAPSHOT}"
+          elif [[ "$workspace_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            release_version="$workspace_version"
+          else
+            echo "::error::Invalid workspace release version '$workspace_version'; expected X.Y.Z or X.Y.Z-SNAPSHOT"
+            exit 1
+          fi
+
           resume_tag=""
-          while IFS= read -r tag; do
-            [[ -z "$tag" ]] && continue
-            tag_commit="$(git rev-list -n 1 "$tag")"
+          if git rev-parse --verify --quiet "refs/tags/$release_version" >/dev/null; then
+            tag_commit="$(git rev-list -n 1 "$release_version")"
             tag_parent="$(git rev-parse "$tag_commit^" 2>/dev/null || true)"
 
-            if [[ "$tag_commit" == "$GITHUB_SHA" || "$tag_parent" == "$GITHUB_SHA" ]]; then
-              resume_tag="$tag"
-              break
-            fi
-          done < <(stable_tags)
-
-          if [[ -z "$resume_tag" ]]; then
-            current_workspace_version="$(
-              sed -n '/^\[workspace.package\]/,/^\[/ s/^version = "\([^"]*\)"/\1/p' Cargo.toml |
-                head -n 1
-            )"
-
-            if [[ "$current_workspace_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
-              current_release_version="${current_workspace_version%-SNAPSHOT}"
-
-              if git rev-parse --verify --quiet "refs/tags/$current_release_version" >/dev/null; then
-                current_tag_commit="$(git rev-list -n 1 "$current_release_version")"
-                current_tag_parent="$(git rev-parse "$current_tag_commit^" 2>/dev/null || true)"
-
-                if git merge-base --is-ancestor "$current_tag_commit" "$GITHUB_SHA" ||
-                  { [[ -n "$current_tag_parent" ]] &&
-                    git merge-base --is-ancestor "$current_tag_parent" "$GITHUB_SHA"; }; then
-                  resume_tag="$current_release_version"
-                  echo "Release $resume_tag is already tagged from this main history; resuming post-release steps."
-                fi
-              fi
+            if [[ "$tag_commit" == "$GITHUB_SHA" || "$tag_parent" == "$GITHUB_SHA" ]] ||
+              git merge-base --is-ancestor "$tag_commit" "$GITHUB_SHA" ||
+              { [[ -n "$tag_parent" ]] &&
+                git merge-base --is-ancestor "$tag_parent" "$GITHUB_SHA"; }; then
+              resume_tag="$release_version"
+              echo "Release $resume_tag is already tagged from this main history; resuming post-release steps."
             fi
           fi
 
           if [[ -n "$resume_tag" ]]; then
-            release_version="$resume_tag"
             git checkout --detach "$resume_tag"
             echo "Resuming release $release_version from tag $resume_tag."
           else
@@ -114,17 +106,6 @@ jobs:
               exit 1
             fi
 
-            workspace_version="$(
-              sed -n '/^\[workspace.package\]/,/^\[/ s/^version = "\([^"]*\)"/\1/p' Cargo.toml |
-                head -n 1
-            )"
-
-            if [[ ! "$workspace_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
-              echo "::error::Invalid workspace snapshot version '$workspace_version'"
-              exit 1
-            fi
-
-            release_version="${workspace_version%-SNAPSHOT}"
             latest_tag="$(stable_tags | head -n 1)"
 
             if [[ -n "$latest_tag" ]] &&
@@ -135,7 +116,13 @@ jobs:
             fi
 
             sed -i -E '/^\[workspace.package\]/,/^\[/ s/^version = "[^"]+"/version = "'"$release_version"'"/' Cargo.toml
-            sed -i -E '/^profiled_config_macros = \{/,/^\}/ s|^    path = "profiled-config-macros",$|    path = "profiled-config-macros",\n    version = "='"$release_version"'",|' Cargo.toml
+
+            if sed -n '/^profiled_config_macros = \{/,/^\}/p' Cargo.toml |
+              grep -q '^    version = '; then
+              sed -i -E '/^profiled_config_macros = \{/,/^\}/ s|^    version = "[^"]+",$|    version = "='"$release_version"'",|' Cargo.toml
+            else
+              sed -i -E '/^profiled_config_macros = \{/,/^\}/ s|^    path = "profiled-config-macros",$|    path = "profiled-config-macros",\n    version = "='"$release_version"'",|' Cargo.toml
+            fi
 
             cargo check --workspace --all-features
 
