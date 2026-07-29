@@ -312,22 +312,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "profiled_config_examples"
-version = "1.0.0-SNAPSHOT"
-dependencies = [
- "env_logger",
- "log",
- "profiled_config",
- "serde",
-]
-
-[[package]]
 name = "profiled_config_macros"
 version = "1.0.0-SNAPSHOT"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.118",
+]
+
+[[package]]
+name = "profiled_config_test"
+version = "1.0.0-SNAPSHOT"
+dependencies = [
+ "env_logger",
+ "log",
+ "profiled_config",
+ "serde",
 ]
 
 [[package]]

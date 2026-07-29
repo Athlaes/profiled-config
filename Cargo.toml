@@ -1,5 +1,10 @@
 [workspace]
-members = [".", "profiled-config-macros", "profiled-config-examples"]
+members = [".", "profiled-config-macros", "profiled-config-test"]
+default-members = [
+    ".",
+    "profiled-config-macros",
+    "profiled-config-test",
+]
 
 [workspace.package]
 version = "1.0.0-SNAPSHOT"

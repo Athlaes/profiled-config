@@ -1,5 +1,5 @@
 [package]
-name = "profiled_config_examples"
+name = "profiled_config_test"
 version.workspace = true
 edition = "2024"
 publish = false
