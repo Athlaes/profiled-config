@@ -300,12 +300,12 @@ dependencies = [
 
 [[package]]
 name = "profiled_config"
-version = "0.1.0"
+version = "0.2.0-SNAPSHOT"
 dependencies = [
  "clap",
  "include_dir",
  "log",
- "profiled_config_macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "profiled_config_macros",
  "regex",
  "serde_core",
  "toml",
@@ -313,18 +313,7 @@ dependencies = [
 
 [[package]]
 name = "profiled_config_macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.118",
-]
-
-[[package]]
-name = "profiled_config_macros"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c4ca6e09d974423369d40cb8b0863d4c240775d98b6fdc76b8c7ab8ba2ab61d"
+version = "0.2.0-SNAPSHOT"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -333,7 +322,7 @@ dependencies = [
 
 [[package]]
 name = "profiled_config_test"
-version = "0.1.0"
+version = "0.2.0-SNAPSHOT"
 dependencies = [
  "env_logger",
  "log",
