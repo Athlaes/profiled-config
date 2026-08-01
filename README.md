@@ -2,8 +2,9 @@
 
 [![CI](https://github.com/Athlaes/profiled-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/Athlaes/profiled-rust/actions/workflows/ci.yml)
 
-`profiled-config` is a small Rust library for typed, profile-based TOML
-configuration, inspired by Spring profiles.
+`profiled-config` is a small Rust library for typed, profile-based
+configuration, inspired by Spring profiles. Configuration files can use TOML,
+JSON, YAML, or INI.
 
 Configuration files are embedded in the application binary at compile time. At
 startup, the library loads the default configuration, applies the selected
@@ -16,7 +17,8 @@ into a Rust type.
 
 ## Features
 
-- TOML configuration embedded directly in the application binary
+- TOML, JSON, YAML, or INI configuration embedded directly in the application
+  binary
 - strongly typed configuration through Serde
 - one or more profiles selected from the command line
 - predictable, ordered profile merging
@@ -30,8 +32,28 @@ into a Rust type.
 Add the library from crates.io and enable the `macros` feature:
 
 ```shell
-cargo add profile_config --features macros
+cargo add profiled_config --features macros
 ```
+
+TOML support is enabled by default. The other formats are opt-in Cargo
+features:
+
+| Format | File extensions | Cargo feature | Enabled by default |
+| --- | --- | --- | --- |
+| TOML | `.toml` | `toml` | Yes |
+| JSON | `.json` | `json` | No |
+| YAML | `.yaml`, `.yml` | `yaml` | No |
+| INI | `.ini` | `ini` | No |
+
+Enable every format alongside the attribute macro with:
+
+```shell
+cargo add profiled_config --features macros,json,yaml,ini
+```
+
+At least one format feature must be enabled for configuration loading. INI is
+limited by its format: keys and values are read as strings, and sequences are
+not supported.
 
 ## Quick start
 
@@ -83,23 +105,29 @@ changes require rebuilding the application.
 
 ## Using profiles
 
-Add one TOML file per profile next to `default.toml`:
+Add one configuration file per profile next to the default file:
 
 ```text
 config/
 ├── default.toml
-├── development.toml
-└── local.toml
+├── development.json
+└── local.yaml
 ```
 
-For example, `config/development.toml` can override only the values needed for
+Formats can be mixed as long as their Cargo features are enabled. Each profile
+name must be unique: do not create both `development.toml` and
+`development.json`, for example.
+
+For example, `config/development.json` can override only the values needed for
 development:
 
-```toml
-port = 3000
-
-[database]
-url = "postgres://localhost/my-service-dev"
+```json
+{
+  "port": 3000,
+  "database": {
+    "url": "postgres://localhost/my-service-dev"
+  }
+}
 ```
 
 Select profiles with `--profiles` (or `-p`):
@@ -117,17 +145,18 @@ cargo run -- --profiles development,local
 The files are applied from left to right:
 
 1. `default.toml`
-2. `development.toml`
-3. `local.toml`
+2. `development.json`
+3. `local.yaml`
 
-Later profiles override earlier ones. TOML tables are merged recursively;
-scalar values and arrays are replaced. A profile that cannot be loaded is
-logged and skipped.
+Later profiles override earlier ones. Objects or tables are merged recursively;
+scalar values and arrays are replaced. A selected profile that cannot be loaded
+is logged and skipped. The default profile is required and stops loading when
+it is missing, ambiguous, invalid, or uses a format whose feature is disabled.
 
 ## Environment variables
 
-Environment expressions can be used in any TOML string, including strings
-nested in tables or arrays.
+Environment expressions can be used in any string value, including strings
+nested in objects, tables, or arrays.
 
 Use `${VARIABLE}` when the variable is required:
 
@@ -204,7 +233,7 @@ Keep `#[profiled_config]` above the runtime attribute.
 ## Loading without the attribute macro
 
 The configuration can also be loaded directly. In that case, the `macros`
-feature is not required:
+feature is not required (this command keeps the default TOML support):
 
 ```shell
 cargo add profiled_config
@@ -228,14 +257,15 @@ fn main() {
 
 At startup, `profiled-config`:
 
-1. reads the embedded `config/default.toml`;
-2. reads each selected `<profile>.toml` file;
+1. finds the embedded `config/default.<extension>` file;
+2. finds each selected `<profile>.<extension>` file;
 3. merges the files in profile order;
 4. resolves environment expressions;
 5. deserializes the result into the type expected by `main`.
 
-Invalid default configuration, unresolved required environment variables, and
-deserialization errors stop the application with an error.
+The extension selects the parser and must have its matching Cargo feature
+enabled. Invalid default configuration, unresolved required environment
+variables, and deserialization errors stop the application with an error.
 
 ## Development and releases
 
