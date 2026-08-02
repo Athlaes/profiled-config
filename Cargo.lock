@@ -342,7 +342,7 @@ dependencies = [
 
 [[package]]
 name = "profiled_config"
-version = "0.2.0-SNAPSHOT"
+version = "0.2.0"
 dependencies = [
  "clap",
  "include_dir",
@@ -359,7 +359,7 @@ dependencies = [
 
 [[package]]
 name = "profiled_config_macros"
-version = "0.2.0-SNAPSHOT"
+version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -368,7 +368,7 @@ dependencies = [
 
 [[package]]
 name = "profiled_config_test"
-version = "0.2.0-SNAPSHOT"
+version = "0.2.0"
 dependencies = [
  "env_logger",
  "log",
