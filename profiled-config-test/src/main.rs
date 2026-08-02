@@ -25,11 +25,12 @@ struct Tabs {
 }
 
 fn init_logger() {
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
 }
 
 #[profiled_config(before_load = init_logger)]
-fn main(config: Config) {
+#[tokio::main]
+async fn main(config: Config) {
     match config.profile.name.as_str() {
         "default" => {
             info!("Default profile loaded");
