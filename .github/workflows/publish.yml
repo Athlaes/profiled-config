@@ -117,11 +117,11 @@ jobs:
 
             sed -i -E '/^\[workspace.package\]/,/^\[/ s/^version = "[^"]+"/version = "'"$release_version"'"/' Cargo.toml
 
-            if sed -n '/^profiled_config_macros = \{/,/^\}/p' Cargo.toml |
+            if sed -n '/^profiled_config_macros = [{]$/,/^[}]$/p' Cargo.toml |
               grep -q '^    version = '; then
-              sed -i -E '/^profiled_config_macros = \{/,/^\}/ s|^    version = "[^"]+",$|    version = "='"$release_version"'",|' Cargo.toml
+              sed -i -E '/^profiled_config_macros = [{]$/,/^[}]$/ s|^    version = "[^"]+",$|    version = "='"$release_version"'",|' Cargo.toml
             else
-              sed -i -E '/^profiled_config_macros = \{/,/^\}/ s|^    path = "profiled-config-macros",$|    path = "profiled-config-macros",\n    version = "='"$release_version"'",|' Cargo.toml
+              sed -i -E '/^profiled_config_macros = [{]$/,/^[}]$/ s|^    path = "profiled-config-macros",$|    path = "profiled-config-macros",\n    version = "='"$release_version"'",|' Cargo.toml
             fi
 
             cargo check --workspace --all-features
@@ -244,11 +244,11 @@ jobs:
 
           sed -i -E '/^\[workspace.package\]/,/^\[/ s/^version = "[^"]+"/version = "'"$next_snapshot"'"/' Cargo.toml
 
-          sed -i -E '/^profiled_config_macros = \{/,/^\}/{/^    version = /d;}' Cargo.toml
+          sed -i -E '/^profiled_config_macros = [{]$/,/^[}]$/{/^    version = /d;}' Cargo.toml
 
-          if ! sed -n '/^profiled_config_macros = \{/,/^\}/p' Cargo.toml |
+          if ! sed -n '/^profiled_config_macros = [{]$/,/^[}]$/p' Cargo.toml |
             grep -q '^    path = "profiled-config-macros",$'; then
-            sed -i -E '/^profiled_config_macros = \{$/a\    path = "profiled-config-macros",' Cargo.toml
+            sed -i -E '/^profiled_config_macros = [{]$/a\    path = "profiled-config-macros",' Cargo.toml
           fi
 
           cargo check --workspace --all-features
