@@ -97,7 +97,7 @@ fn parse_json(content: &str) -> Result<Value, ConfigError> {
 
 #[cfg(feature = "yaml")]
 fn parse_yaml(content: &str) -> Result<Value, ConfigError> {
-    serde_yaml::from_str(content)
+    yaml_serde::from_str(content)
         .map_err(|error| ConfigError::ParseError(format!("Couldn't parse file : {error}")))
 }
 

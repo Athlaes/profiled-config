@@ -278,11 +278,11 @@ by GitHub Actions for 14 days; they do not create a Git tag, a GitHub Release,
 or a crates.io version.
 
 Merging `develop` into `main` removes the `-SNAPSHOT` suffix only in the release
-checkout and creates the corresponding stable release (`0.3.0-SNAPSHOT`
-becomes `0.3.0`). The workflow also injects the crates.io version of the local
+checkout and creates the corresponding stable release (`0.4.0-SNAPSHOT`
+becomes `0.4.0`). The workflow also injects the crates.io version of the local
 proc-macro dependency in that checkout. Once the release is complete, it
 increments the minor component, resets the patch to zero, and updates
-`develop` once with the next workspace snapshot version (`0.4.0-SNAPSHOT`).
+`develop` once with the next workspace snapshot version (`0.5.0-SNAPSHOT`).
 Patch increments are reserved for a future hotfix workflow.
 
 Developers do not edit package versions during day-to-day work. The release
