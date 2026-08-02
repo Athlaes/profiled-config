@@ -7,7 +7,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.3.0-SNAPSHOT"
+version = "0.4.0-SNAPSHOT"
 
 [package]
 name = "profiled_config"
