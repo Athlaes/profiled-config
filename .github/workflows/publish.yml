@@ -212,6 +212,8 @@ jobs:
 
       - name: Prepare the next development snapshot
         shell: bash
+        env:
+          GH_TOKEN: ${{ steps.release_app.outputs.token }}
         run: |
           set -euo pipefail
 
