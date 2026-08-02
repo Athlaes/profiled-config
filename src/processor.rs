@@ -1,8 +1,8 @@
-use std::env;
+use std::{collections::BTreeMap, env};
 
-use toml::{Table, Value};
+use serde_value::Value;
 
-pub fn compute_table(table: &Table) -> Table {
+fn compute_table(table: &BTreeMap<Value, Value>) -> BTreeMap<Value, Value> {
     let mut computed_table = table.clone();
     for (key, value) in table.iter() {
         let computed_value = compute_any(value);
@@ -11,11 +11,11 @@ pub fn compute_table(table: &Table) -> Table {
     computed_table
 }
 
-fn compute_any(value: &Value) -> Value {
+pub fn compute_any(value: &Value) -> Value {
     match value {
         Value::String(val) => Value::String(compute_string(val)),
-        Value::Array(arr) => Value::Array(compute_array(arr)),
-        Value::Table(tab) => Value::Table(compute_table(tab)),
+        Value::Seq(arr) => Value::Seq(compute_array(arr)),
+        Value::Map(tab) => Value::Map(compute_table(tab)),
         _ => value.clone(),
     }
 }
@@ -46,70 +46,108 @@ fn compute_env_var(var_name: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Mutex, MutexGuard};
+
     use super::*;
 
-    const TOML_VALUE: &str = r#"
-        [profile]
-        name = "default"
+    static ENVIRONMENT: Mutex<()> = Mutex::new(());
+    const MISSING_ENV_VAR: &str = "PROFILED_CONFIG_TEST_MISSING_ENV_VAR";
+    const DATABASE_URL: &str = "PROFILED_CONFIG_TEST_DATABASE_URL";
 
-        [clients.aia]
-        url = "${SERVICE_PROTOCOL}://${SERVICE_HOST}:${SERVICE_PORT}"
-        "#;
+    fn string(value: &str) -> Value {
+        Value::String(value.to_string())
+    }
 
-    const MISSING_VAR_TOML_VALUE: &str = r#"
-        [profile]
-        name = "${MISSING_ENV_VAR}"
+    fn map(entries: impl IntoIterator<Item = (&'static str, Value)>) -> Value {
+        Value::Map(
+            entries
+                .into_iter()
+                .map(|(key, value)| (string(key), value))
+                .collect(),
+        )
+    }
 
-        [clients.aia]
-        url = "${SERVICE_PROTOCOL}://${SERVICE_HOST}:${SERVICE_PORT}"
-        "#;
+    fn configuration(profile_name: &str, database_url: Option<&str>) -> Value {
+        let mut entries = vec![
+            ("profile", map([("name", string(profile_name))])),
+            (
+                "clients",
+                map([(
+                    "aia",
+                    map([(
+                        "url",
+                        string("${SERVICE_PROTOCOL}://${SERVICE_HOST}:${SERVICE_PORT}"),
+                    )]),
+                )]),
+            ),
+        ];
+        if let Some(database_url) = database_url {
+            entries.push(("database", map([("url", string(database_url))])));
+        }
+        map(entries)
+    }
 
-    const MISSING_VAR_WITH_DEFAULT_TOML_VALUE: &str = r#"
-        [profile]
-        name = "${MISSING_ENV_VAR:test}"
+    fn nested_string<'a>(value: &'a Value, path: &[&str]) -> &'a str {
+        let mut current = value;
+        for key in path {
+            let Value::Map(map) = current else {
+                panic!("expected a map while resolving {path:?}");
+            };
+            current = map
+                .get(&string(key))
+                .unwrap_or_else(|| panic!("missing key {key} while resolving {path:?}"));
+        }
+        let Value::String(value) = current else {
+            panic!("expected a string at {path:?}");
+        };
+        value
+    }
 
-        [clients.aia]
-        url = "${SERVICE_PROTOCOL}://${SERVICE_HOST}:${SERVICE_PORT}"
-
-        [database]
-        url = "${DATABASE_URL:postres://localhost:5432}"
-        "#;
-
-    fn init_env() {
+    fn init_env() -> MutexGuard<'static, ()> {
+        let guard = ENVIRONMENT
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         unsafe {
             env::set_var("SERVICE_PROTOCOL", "http");
             env::set_var("SERVICE_HOST", "localhost");
             env::set_var("SERVICE_PORT", "8080");
+            env::remove_var(MISSING_ENV_VAR);
+            env::remove_var(DATABASE_URL);
         }
+        guard
     }
 
     #[test]
-    fn success_compute_table() {
-        init_env();
-        let value: Table = toml::from_str(TOML_VALUE).unwrap();
-        let result = compute_table(&value);
+    fn success_compute_any() {
+        let _environment = init_env();
+        let value = configuration("default", None);
+        let result = compute_any(&value);
         assert_eq!(
-            result.to_string(),
-            "[clients.aia]\nurl = \"http://localhost:8080\"\n\n[profile]\nname = \"default\"\n"
+            nested_string(&result, &["clients", "aia", "url"]),
+            "http://localhost:8080"
         );
     }
 
     #[test]
     fn success_missing_var_with_default() {
-        init_env();
-        let value: Table = toml::from_str(MISSING_VAR_WITH_DEFAULT_TOML_VALUE).unwrap();
-        let result = compute_table(&value);
+        let _environment = init_env();
+        let value = configuration(
+            "${PROFILED_CONFIG_TEST_MISSING_ENV_VAR:test}",
+            Some("${PROFILED_CONFIG_TEST_DATABASE_URL:postgres://localhost:5432}"),
+        );
+        let result = compute_any(&value);
+        assert_eq!(nested_string(&result, &["profile", "name"]), "test");
         assert_eq!(
-            result.to_string(),
-            "[clients.aia]\nurl = \"http://localhost:8080\"\n\n[database]\nurl = \"postres://localhost:5432\"\n\n[profile]\nname = \"test\"\n"
+            nested_string(&result, &["database", "url"]),
+            "postgres://localhost:5432"
         );
     }
 
     #[test]
     #[should_panic]
-    fn panic_compute_table_on_missing_env_var() {
-        init_env();
-        let value: Table = toml::from_str(MISSING_VAR_TOML_VALUE).unwrap();
-        compute_table(&value);
+    fn panic_compute_any_on_missing_env_var() {
+        let _environment = init_env();
+        let value = configuration("${PROFILED_CONFIG_TEST_MISSING_ENV_VAR}", None);
+        compute_any(&value);
     }
 }

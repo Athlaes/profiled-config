@@ -14,18 +14,25 @@ mod loader;
 mod merger;
 mod processor;
 
+#[derive(Debug)]
 enum ConfigError {
     FileNotFound(String),
     ContentUtf8Error(String),
-    ParseError(toml::de::Error),
+    ParseError(String),
+    DuplicateProfile(String),
+    NotSupportedExtension(String),
+    ExtensionNotFound(String),
 }
 
 impl Display for ConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ConfigError::FileNotFound(error) => write!(f, "{}", error),
-            ConfigError::ContentUtf8Error(error) => write!(f, "{}", error),
-            ConfigError::ParseError(error) => write!(f, "{}", error),
+            ConfigError::FileNotFound(error) => write!(f, "{error}"),
+            ConfigError::ContentUtf8Error(error) => write!(f, "{error}"),
+            ConfigError::ParseError(error) => write!(f, "{error}"),
+            ConfigError::DuplicateProfile(error) => write!(f, "{error}"),
+            ConfigError::NotSupportedExtension(error) => write!(f, "{error}"),
+            ConfigError::ExtensionNotFound(error) => write!(f, "{error}"),
         }
     }
 }
@@ -57,6 +64,6 @@ where
     let profiles = ConfigArgs::parse().profiles;
     let files_content = loader::load_values(config_folder, &profiles);
     let merged_content = merger::merge_values(&files_content);
-    let processed_content = processor::compute_table(&merged_content);
+    let processed_content = processor::compute_any(&merged_content);
     T::deserialize(processed_content).expect("Couldn't deserialize configuration")
 }
