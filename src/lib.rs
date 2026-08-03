@@ -12,7 +12,9 @@ use serde_core::de::DeserializeOwned;
 
 mod loader;
 mod merger;
+mod parser;
 mod processor;
+mod provider;
 
 #[derive(Debug)]
 enum ConfigError {
@@ -64,6 +66,6 @@ where
     let profiles = ConfigArgs::parse().profiles;
     let files_content = loader::load_values(config_folder, &profiles);
     let merged_content = merger::merge_values(&files_content);
-    let processed_content = processor::compute_any(&merged_content);
+    let processed_content = processor::process_any(&merged_content);
     T::deserialize(processed_content).expect("Couldn't deserialize configuration")
 }

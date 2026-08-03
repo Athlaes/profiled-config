@@ -2,41 +2,41 @@ use std::{collections::BTreeMap, env};
 
 use serde_value::Value;
 
-fn compute_table(table: &BTreeMap<Value, Value>) -> BTreeMap<Value, Value> {
-    let mut computed_table = table.clone();
-    for (key, value) in table.iter() {
-        let computed_value = compute_any(value);
-        computed_table.insert(key.clone(), computed_value);
-    }
-    computed_table
-}
-
-pub fn compute_any(value: &Value) -> Value {
+pub fn process_any(value: &Value) -> Value {
     match value {
-        Value::String(val) => Value::String(compute_string(val)),
-        Value::Seq(arr) => Value::Seq(compute_array(arr)),
-        Value::Map(tab) => Value::Map(compute_table(tab)),
+        Value::String(val) => Value::String(process_string(val)),
+        Value::Seq(arr) => Value::Seq(process_array(arr)),
+        Value::Map(tab) => Value::Map(process_table(tab)),
         _ => value.clone(),
     }
 }
 
-fn compute_string(val: &str) -> String {
+fn process_table(table: &BTreeMap<Value, Value>) -> BTreeMap<Value, Value> {
+    let mut processd_table = table.clone();
+    for (key, value) in table.iter() {
+        let processd_value = process_any(value);
+        processd_table.insert(key.clone(), processd_value);
+    }
+    processd_table
+}
+
+fn process_string(val: &str) -> String {
     let regxp = regex::Regex::new(r"\$\{([:/a-zA-Z0-9_-]*)\}")
         .unwrap_or_else(|e| panic!("Couldn't parse regex: {}", e));
     let mut value = val.to_string();
     for capture in regxp.captures_iter(val) {
         let var_name = &capture[1];
-        let var_value = compute_env_var(var_name);
+        let var_value = process_env_var(var_name);
         value = value.replace(&capture[0], var_value.as_str());
     }
     value
 }
 
-fn compute_array(arr: &[Value]) -> Vec<Value> {
-    arr.iter().map(compute_any).collect()
+fn process_array(arr: &[Value]) -> Vec<Value> {
+    arr.iter().map(process_any).collect()
 }
 
-fn compute_env_var(var_name: &str) -> String {
+fn process_env_var(var_name: &str) -> String {
     let splitted_values = var_name.split(':').collect::<Vec<&str>>();
     if splitted_values.len() >= 2 {
         return env::var(splitted_values[0]).unwrap_or(splitted_values[1..].join(":"));
@@ -118,10 +118,10 @@ mod tests {
     }
 
     #[test]
-    fn success_compute_any() {
+    fn success_process_any() {
         let _environment = init_env();
         let value = configuration("default", None);
-        let result = compute_any(&value);
+        let result = process_any(&value);
         assert_eq!(
             nested_string(&result, &["clients", "aia", "url"]),
             "http://localhost:8080"
@@ -135,7 +135,7 @@ mod tests {
             "${PROFILED_CONFIG_TEST_MISSING_ENV_VAR:test}",
             Some("${PROFILED_CONFIG_TEST_DATABASE_URL:postgres://localhost:5432}"),
         );
-        let result = compute_any(&value);
+        let result = process_any(&value);
         assert_eq!(nested_string(&result, &["profile", "name"]), "test");
         assert_eq!(
             nested_string(&result, &["database", "url"]),
@@ -145,9 +145,9 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn panic_compute_any_on_missing_env_var() {
+    fn panic_process_any_on_missing_env_var() {
         let _environment = init_env();
         let value = configuration("${PROFILED_CONFIG_TEST_MISSING_ENV_VAR}", None);
-        compute_any(&value);
+        process_any(&value);
     }
 }
