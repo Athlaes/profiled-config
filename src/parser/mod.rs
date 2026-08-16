@@ -1,9 +1,6 @@
 use std::fmt::Display;
 
-use crate::{
-    ConfigError::ParseError,
-    parser::ast::{ConfigExpression, ConfigValue, ConfigValueParts, SelectorExpression},
-};
+use crate::parser::ast::{ConfigExpression, ConfigValue, ConfigValueParts, SelectorExpression};
 
 mod ast;
 
@@ -11,7 +8,6 @@ mod ast;
 pub enum ParseError {
     UnexpectedToken(&'static str),
     EndOfExpressionNotFound(&'static str),
-    ProviderNotFound(&'static str),
 }
 
 impl Display for ParseError {
@@ -19,7 +15,6 @@ impl Display for ParseError {
         match self {
             ParseError::UnexpectedToken(msg) => write!(f, "{}", msg),
             ParseError::EndOfExpressionNotFound(msg) => write!(f, "{}", msg),
-            ParseError::ProviderNotFound(msg) => write!(f, "{}", msg),
         }
     }
 }
@@ -31,7 +26,7 @@ struct ConfigValueParser<'a> {
 }
 
 impl<'a> ConfigValueParser<'a> {
-    fn new(cfg_value: &'a str) -> Self {
+    pub fn new(cfg_value: &'a str) -> Self {
         Self {
             cfg_value,
             position: 0,
@@ -77,7 +72,7 @@ impl<'a> ConfigValueParser<'a> {
     }
 
     fn consume(&mut self, value: &str) -> bool {
-        if self.cfg_value.starts_with(value) {
+        if self.cfg_value[self.position..].starts_with(value) {
             self.position += value.len();
             true
         } else {
@@ -89,7 +84,9 @@ impl<'a> ConfigValueParser<'a> {
         let mut parts = vec![];
         while self.peek().is_some() {
             let literal = self.consume_until(vec!["$"]);
-            parts.push(ConfigValueParts::Literal(literal));
+            if !literal.is_empty() {
+                parts.push(ConfigValueParts::Literal(literal));
+            }
             if let Some('$') = self.peek() {
                 parts.push(ConfigValueParts::Expression(self.parse_expression()?));
             }
@@ -179,5 +176,44 @@ mod tests {
     ) {
         let result = ConfigValueParser::new(tested_value).consume_until(separator);
         assert_eq!(expected, result)
+    }
+
+    #[rstest]
+    #[case(
+        "http://${env:HOSTNAME}:${env:PORT}/auth",
+        ConfigValue {
+            parts: vec![
+                ConfigValueParts::Literal("http://".to_string()),
+                ConfigValueParts::Expression(ConfigExpression { provider: "env".to_string(), key: "HOSTNAME".to_string(), selector: None, default: None }),
+                ConfigValueParts::Literal(":".to_string()),
+                ConfigValueParts::Expression(ConfigExpression { provider: "env".to_string(), key: "PORT".to_string(), selector: None, default: None }),
+                ConfigValueParts::Literal("/auth".to_string()),
+            ]
+        }
+    )]
+    #[case(
+        "${env:HOSTNAME:api.mycompany.com}",
+        ConfigValue {
+            parts: vec![
+                ConfigValueParts::Expression(ConfigExpression { provider: "env".to_string(), key: "HOSTNAME".to_string(), selector: None, default: Some("api.mycompany.com".to_string()) }),
+            ]
+        }
+    )]
+    #[case(
+        "${env:HOSTNAME(jsonpath:$.):api.mycompany.com}",
+        ConfigValue {
+            parts: vec![
+                ConfigValueParts::Expression(ConfigExpression {
+                    provider: "env".to_string(),
+                    key: "HOSTNAME".to_string(),
+                    selector: Some(SelectorExpression { kind: "jsonpath".to_string(), query: "$.".to_string() }),
+                    default: Some("api.mycompany.com".to_string())
+                }),
+            ]
+        }
+    )]
+    fn parse_value_success(#[case] tested_value: &str, #[case] expected_value: ConfigValue) {
+        let result = ConfigValueParser::new(tested_value).parse_value().unwrap();
+        assert_eq!(expected_value, result)
     }
 }
