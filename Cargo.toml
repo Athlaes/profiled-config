@@ -47,3 +47,6 @@ profiled_config_macros = {
     path = "profiled-config-macros",
     optional = true
 }
+
+[dev-dependencies]
+rstest = "0.26.1"
