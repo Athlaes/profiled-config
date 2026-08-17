@@ -47,6 +47,7 @@ profiled_config_macros = {
     path = "profiled-config-macros",
     optional = true
 }
+serde_json_path = "0.7.2"
 
 [dev-dependencies]
 rstest = "0.26.1"

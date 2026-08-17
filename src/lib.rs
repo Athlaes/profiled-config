@@ -15,6 +15,8 @@ mod merger;
 mod parser;
 mod processor;
 mod provider;
+mod resolver;
+mod selector;
 
 #[derive(Debug)]
 enum ConfigError {

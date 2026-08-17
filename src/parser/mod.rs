@@ -1,13 +1,12 @@
-use std::fmt::Display;
+pub mod ast;
 
 use crate::parser::ast::{ConfigExpression, ConfigValue, ConfigValueParts, SelectorExpression};
-
-mod ast;
+use std::fmt::Display;
 
 #[derive(Debug)]
 pub enum ParseError {
-    UnexpectedToken(&'static str),
-    EndOfExpressionNotFound(&'static str),
+    UnexpectedToken(String),
+    EndOfExpressionNotFound(String),
 }
 
 impl Display for ParseError {
@@ -19,7 +18,7 @@ impl Display for ParseError {
     }
 }
 
-struct ConfigValueParser<'a> {
+pub struct ConfigValueParser<'a> {
     cfg_value: &'a str,
     position: usize,
     in_literal: bool,
@@ -97,13 +96,13 @@ impl<'a> ConfigValueParser<'a> {
     fn parse_expression(&mut self) -> Result<ConfigExpression, ParseError> {
         if !self.consume("${") {
             return Err(ParseError::UnexpectedToken(
-                "Unexpected expression beginning token '$'",
+                "Unexpected expression beginning token '$'".to_string(),
             ));
         }
         let provider = self.consume_until(vec![":"]);
         if !self.consume(":") {
             return Err(ParseError::EndOfExpressionNotFound(
-                "Provider not found, expected ':'",
+                "Provider not found, expected ':'".to_string(),
             ));
         }
         let key = self.consume_until(vec![":", "(", "}"]);
@@ -111,7 +110,7 @@ impl<'a> ConfigValueParser<'a> {
         let default = self.parse_default();
         if !self.consume("}") {
             return Err(ParseError::EndOfExpressionNotFound(
-                "Missing end of expression '}'",
+                "Missing end of expression '}'".to_string(),
             ));
         }
         Ok(ConfigExpression {
@@ -137,13 +136,13 @@ impl<'a> ConfigValueParser<'a> {
         let kind = self.consume_until(vec![":"]);
         if !self.consume(":") {
             return Err(ParseError::EndOfExpressionNotFound(
-                "Selector kind not found, expected ':'",
+                "Selector kind not found, expected ':'".to_string(),
             ));
         }
         let query = self.consume_until(vec![")"]);
         if !self.consume(")") {
             return Err(ParseError::EndOfExpressionNotFound(
-                "Missing end of selector expression ')'",
+                "Missing end of selector expression ')'".to_string(),
             ));
         }
         Ok(Some(SelectorExpression { kind, query }))
@@ -152,6 +151,8 @@ impl<'a> ConfigValueParser<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::parser::ast::ConfigValue;
+
     use super::*;
 
     use rstest::rstest;

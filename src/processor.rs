@@ -1,6 +1,8 @@
-use std::{collections::BTreeMap, env};
+use std::collections::BTreeMap;
 
 use serde_value::Value;
+
+use crate::{parser::ConfigValueParser, resolver};
 
 pub fn process_any(value: &Value) -> Value {
     match value {
@@ -21,27 +23,11 @@ fn process_table(table: &BTreeMap<Value, Value>) -> BTreeMap<Value, Value> {
 }
 
 fn process_string(val: &str) -> String {
-    let regxp = regex::Regex::new(r"\$\{([:/a-zA-Z0-9_-]*)\}")
-        .unwrap_or_else(|e| panic!("Couldn't parse regex: {}", e));
-    let mut value = val.to_string();
-    for capture in regxp.captures_iter(val) {
-        let var_name = &capture[1];
-        let var_value = process_env_var(var_name);
-        value = value.replace(&capture[0], var_value.as_str());
-    }
-    value
+    resolver::resolve(ConfigValueParser::new(val).parse_value().unwrap())
 }
 
 fn process_array(arr: &[Value]) -> Vec<Value> {
     arr.iter().map(process_any).collect()
-}
-
-fn process_env_var(var_name: &str) -> String {
-    let splitted_values = var_name.split(':').collect::<Vec<&str>>();
-    if splitted_values.len() >= 2 {
-        return env::var(splitted_values[0]).unwrap_or(splitted_values[1..].join(":"));
-    }
-    env::var(splitted_values[0]).unwrap_or_else(|e| panic!("Couldn't find env var: {}", e))
 }
 
 #[cfg(test)]
@@ -49,6 +35,7 @@ mod tests {
     use std::sync::{Mutex, MutexGuard};
 
     use super::*;
+    use std::env;
 
     static ENVIRONMENT: Mutex<()> = Mutex::new(());
     const MISSING_ENV_VAR: &str = "PROFILED_CONFIG_TEST_MISSING_ENV_VAR";
