@@ -68,10 +68,9 @@ fn get_file_contents<'file>(file: &'file File<'_>) -> Result<&'file str, ConfigE
 
 fn get_file_parser(extension: &str) -> Result<Parser, ConfigError> {
     match extension {
+        "json" => Ok(parse_json),
         #[cfg(feature = "toml")]
         "toml" => Ok(parse_toml),
-        #[cfg(feature = "json")]
-        "json" => Ok(parse_json),
         #[cfg(feature = "yaml")]
         "yaml" | "yml" => Ok(parse_yaml),
         #[cfg(feature = "ini")]
@@ -83,15 +82,14 @@ fn get_file_parser(extension: &str) -> Result<Parser, ConfigError> {
     }
 }
 
-#[cfg(feature = "toml")]
-fn parse_toml(content: &str) -> Result<Value, ConfigError> {
-    toml::from_str(content)
+fn parse_json(content: &str) -> Result<Value, ConfigError> {
+    serde_json::from_str(content)
         .map_err(|error| ConfigError::ParseError(format!("Couldn't parse file : {error}")))
 }
 
-#[cfg(feature = "json")]
-fn parse_json(content: &str) -> Result<Value, ConfigError> {
-    serde_json::from_str(content)
+#[cfg(feature = "toml")]
+fn parse_toml(content: &str) -> Result<Value, ConfigError> {
+    toml::from_str(content)
         .map_err(|error| ConfigError::ParseError(format!("Couldn't parse file : {error}")))
 }
 
@@ -139,7 +137,6 @@ mod tests {
         assert_eq!(nested_string(&value, "profile", "name"), "toml");
     }
 
-    #[cfg(feature = "json")]
     #[test]
     fn parses_json() {
         let value = parse_json(r#"{"profile":{"name":"json"}}"#).expect("valid JSON");

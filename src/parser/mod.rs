@@ -109,9 +109,10 @@ impl<'a> ConfigValueParser<'a> {
         let selector = self.parse_selector()?;
         let default = self.parse_default();
         if !self.consume("}") {
-            return Err(ParseError::EndOfExpressionNotFound(
-                "Missing end of expression '}'".to_string(),
-            ));
+            return Err(ParseError::EndOfExpressionNotFound(format!(
+                "Missing end of expression '}}' at index {}",
+                self.cfg_value[..self.position].chars().count()
+            )));
         }
         Ok(ConfigExpression {
             key,
@@ -141,9 +142,10 @@ impl<'a> ConfigValueParser<'a> {
         }
         let query = self.consume_until(vec![")"]);
         if !self.consume(")") {
-            return Err(ParseError::EndOfExpressionNotFound(
-                "Missing end of selector expression ')'".to_string(),
-            ));
+            return Err(ParseError::EndOfExpressionNotFound(format!(
+                "Missing end of selector expression ')' at index {}",
+                self.cfg_value[..self.position].chars().count()
+            )));
         }
         Ok(Some(SelectorExpression { kind, query }))
     }

@@ -12,18 +12,25 @@ pub fn resolve(value: ConfigValue) -> String {
                 result.push_str(&str);
             }
             ConfigValueParts::Expression(exp) => {
-                let provider = provider::get_provider(&exp.key);
+                let provider = provider::get_provider(&exp.provider);
                 let value = provider.resolve(&exp.key);
                 match value {
                     Ok(str) => {
                         if let Some(selector) = &exp.selector {
                             let selected_selector = selector::get_selector(selector.kind.as_str());
-                            result.push_str(
-                                &selected_selector
-                                    .select(&str, &selector.query)
-                                    .unwrap_or(exp.get_default_or_panic())
-                                    .as_str(),
-                            );
+                            let selection_result = &selected_selector
+                                .select(&str, &selector.query)
+                                .unwrap_or_else(|err| {
+                                    panic!(
+                                        "Couldn't select value for {} with query {} : {}",
+                                        exp.key, selector.query, err
+                                    );
+                                });
+                            if selection_result.is_empty() {
+                                result.push_str(&exp.get_default_or_panic());
+                            } else {
+                                result.push_str(selection_result);
+                            }
                         } else {
                             result.push_str(&str);
                         }

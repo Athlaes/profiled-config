@@ -1,14 +1,18 @@
 use std::fmt::Display;
 
+use crate::provider::ProviderError::VariableNotFound;
+
 mod env;
 
 #[derive(Debug)]
-pub enum ProviderError {}
+pub enum ProviderError {
+    VariableNotFound(String),
+}
 
 impl Display for ProviderError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            _ => write!(f, "{}", ""),
+            VariableNotFound(str) => write!(f, "{}", str),
         }
     }
 }
