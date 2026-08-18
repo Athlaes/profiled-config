@@ -9,7 +9,7 @@ pub fn resolve(value: ConfigValue) -> String {
     for part in &value.parts {
         match &part {
             ConfigValueParts::Literal(str) => {
-                result.push_str(&str);
+                result.push_str(str);
             }
             ConfigValueParts::Expression(exp) => {
                 let provider = provider::get_provider(&exp.provider);
@@ -43,5 +43,5 @@ pub fn resolve(value: ConfigValue) -> String {
             }
         }
     }
-    return result;
+    result
 }

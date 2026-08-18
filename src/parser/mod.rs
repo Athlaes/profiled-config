@@ -57,7 +57,7 @@ impl<'a> ConfigValueParser<'a> {
                 self.in_literal = !self.in_literal;
             }
             delimiter.push(c);
-            if stop.iter().any(|s| s.starts_with(&delimiter.as_str())) && !self.in_literal {
+            if stop.iter().any(|s| s.starts_with(delimiter.as_str())) && !self.in_literal {
                 if stop.iter().any(|s| s.eq(&delimiter.as_str())) {
                     break;
                 }
