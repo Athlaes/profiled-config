@@ -1,7 +1,5 @@
 pub mod ast;
 
-use toml::de;
-
 use crate::parser::ast::{ConfigExpression, ConfigValue, ConfigValueParts, SelectorExpression};
 use std::fmt::Display;
 
