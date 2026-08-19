@@ -46,12 +46,7 @@ mod tests {
     }
 
     fn map(entries: impl IntoIterator<Item = (&'static str, Value)>) -> Value {
-        Value::Map(
-            entries
-                .into_iter()
-                .map(|(key, value)| (string(key), value))
-                .collect(),
-        )
+        Value::Map(entries.into_iter().map(|(key, value)| (string(key), value)).collect())
     }
 
     fn configuration(profile_name: &str, database_url: Option<&str>) -> Value {
@@ -91,9 +86,7 @@ mod tests {
     }
 
     fn init_env() -> MutexGuard<'static, ()> {
-        let guard = ENVIRONMENT
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let guard = ENVIRONMENT.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         unsafe {
             env::set_var("SERVICE_PROTOCOL", "http");
             env::set_var("SERVICE_HOST", "localhost");

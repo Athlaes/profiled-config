@@ -57,9 +57,6 @@ async fn main(config: Config) {
         ])
     );
     assert_eq!(config.tabs_test.tabs_1, vec![0, 1]);
-    assert_eq!(
-        config.tabs_test.tabs_2,
-        vec!["hello".to_string(), "work".to_string()]
-    );
+    assert_eq!(config.tabs_test.tabs_2, vec!["hello".to_string(), "work".to_string()]);
     info!("Test succeeded");
 }

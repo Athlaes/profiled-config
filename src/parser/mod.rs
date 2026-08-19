@@ -34,7 +34,7 @@ impl<'a> ConfigValueParser<'a> {
     }
 
     fn peek(&self) -> Option<char> {
-        self.cfg_value.chars().nth(self.position)
+        self.cfg_value[self.position..].chars().next()
     }
 
     fn consume_until(&mut self, stop: Vec<&str>) -> String {
@@ -82,7 +82,7 @@ impl<'a> ConfigValueParser<'a> {
     pub fn parse_value(&mut self) -> Result<ConfigValue, ParseError> {
         let mut parts = vec![];
         while self.peek().is_some() {
-            let literal = self.consume_until(vec!["$"]);
+            let literal = self.consume_until(vec!["${"]);
             if !literal.is_empty() {
                 parts.push(ConfigValueParts::Literal(literal));
             }
@@ -172,11 +172,7 @@ mod tests {
         vec!["}"],
         "htt}p://${env:ENV_VARIABLE"
     )]
-    fn consume_until_succes(
-        #[case] tested_value: &str,
-        #[case] separator: Vec<&str>,
-        #[case] expected: &str,
-    ) {
+    fn consume_until_succes(#[case] tested_value: &str, #[case] separator: Vec<&str>, #[case] expected: &str) {
         let result = ConfigValueParser::new(tested_value).consume_until(separator);
         assert_eq!(expected, result)
     }

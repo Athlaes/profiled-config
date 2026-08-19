@@ -10,8 +10,8 @@ type Parser = fn(&str) -> Result<Value, ConfigError>;
 
 pub fn load_values(config_folder: &Dir<'_>, profiles: &[String]) -> Vec<Value> {
     let mut files_values: Vec<Value> = Vec::new();
-    let default_value = load_profile(config_folder, "default")
-        .unwrap_or_else(|e| panic!("Couldn't load default config: {e}"));
+    let default_value =
+        load_profile(config_folder, "default").unwrap_or_else(|e| panic!("Couldn't load default config: {e}"));
     files_values.push(default_value);
     for profile in profiles {
         match load_profile(config_folder, profile) {
@@ -30,10 +30,9 @@ fn load_profile(config_folder: &Dir<'_>, profile: &str) -> Result<Value, ConfigE
     let mut files = config_folder
         .files()
         .filter(|file| file.path().file_stem() == Some(OsStr::new(profile)));
-    let file = files.next().ok_or(ConfigError::FileNotFound(format!(
-        "Profile {} not found",
-        profile
-    )))?;
+    let file = files
+        .next()
+        .ok_or(ConfigError::FileNotFound(format!("Profile {} not found", profile)))?;
 
     if let Some(other_file) = files.next() {
         return Err(ConfigError::DuplicateProfile(format!(
@@ -47,16 +46,9 @@ fn load_profile(config_folder: &Dir<'_>, profile: &str) -> Result<Value, ConfigE
 }
 
 fn get_file_values(file: &File) -> Result<Value, ConfigError> {
-    let extension = file
-        .path()
-        .extension()
-        .and_then(OsStr::to_str)
-        .ok_or_else(|| {
-            ConfigError::ExtensionNotFound(format!(
-                "File extension not found for {}",
-                file.path().display()
-            ))
-        })?;
+    let extension = file.path().extension().and_then(OsStr::to_str).ok_or_else(|| {
+        ConfigError::ExtensionNotFound(format!("File extension not found for {}", file.path().display()))
+    })?;
 
     get_file_parser(extension).and_then(|parser| parser(get_file_contents(file)?))
 }
@@ -83,26 +75,22 @@ fn get_file_parser(extension: &str) -> Result<Parser, ConfigError> {
 }
 
 fn parse_json(content: &str) -> Result<Value, ConfigError> {
-    serde_json::from_str(content)
-        .map_err(|error| ConfigError::ParseError(format!("Couldn't parse file : {error}")))
+    serde_json::from_str(content).map_err(|error| ConfigError::ParseError(format!("Couldn't parse file : {error}")))
 }
 
 #[cfg(feature = "toml")]
 fn parse_toml(content: &str) -> Result<Value, ConfigError> {
-    toml::from_str(content)
-        .map_err(|error| ConfigError::ParseError(format!("Couldn't parse file : {error}")))
+    toml::from_str(content).map_err(|error| ConfigError::ParseError(format!("Couldn't parse file : {error}")))
 }
 
 #[cfg(feature = "yaml")]
 fn parse_yaml(content: &str) -> Result<Value, ConfigError> {
-    yaml_serde::from_str(content)
-        .map_err(|error| ConfigError::ParseError(format!("Couldn't parse file : {error}")))
+    yaml_serde::from_str(content).map_err(|error| ConfigError::ParseError(format!("Couldn't parse file : {error}")))
 }
 
 #[cfg(feature = "ini")]
 fn parse_ini(content: &str) -> Result<Value, ConfigError> {
-    serde_ini::from_str(content)
-        .map_err(|error| ConfigError::ParseError(format!("Couldn't parse file : {error}")))
+    serde_ini::from_str(content).map_err(|error| ConfigError::ParseError(format!("Couldn't parse file : {error}")))
 }
 
 #[cfg(test)]
@@ -115,16 +103,10 @@ mod tests {
         let Value::Map(root) = value else {
             panic!("expected a map at the document root");
         };
-        let Value::Map(section) = root
-            .get(&Value::String(section.to_string()))
-            .expect("missing section")
-        else {
+        let Value::Map(section) = root.get(&Value::String(section.to_string())).expect("missing section") else {
             panic!("expected the section to be a map");
         };
-        let Value::String(value) = section
-            .get(&Value::String(key.to_string()))
-            .expect("missing key")
-        else {
+        let Value::String(value) = section.get(&Value::String(key.to_string())).expect("missing key") else {
             panic!("expected a string value");
         };
         value

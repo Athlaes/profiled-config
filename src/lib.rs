@@ -53,8 +53,7 @@ macro_rules! load_config {
     () => {{
         use $crate::include_dir;
 
-        static CONFIG_FOLDER: include_dir::Dir<'static> =
-            include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
+        static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
 
         $crate::load_config_from_dir(&CONFIG_FOLDER)
     }};

@@ -3,11 +3,9 @@ use std::collections::BTreeMap;
 use serde_value::Value;
 
 pub fn merge_values(files_content: &[Value]) -> Value {
-    files_content
-        .iter()
-        .fold(Value::Map(BTreeMap::new()), |acc, content| {
-            merge_two_x_two(&acc, content)
-        })
+    files_content.iter().fold(Value::Map(BTreeMap::new()), |acc, content| {
+        merge_two_x_two(&acc, content)
+    })
 }
 
 fn merge_two_x_two(a: &Value, b: &Value) -> Value {
@@ -38,12 +36,7 @@ mod tests {
     }
 
     fn map(entries: impl IntoIterator<Item = (&'static str, Value)>) -> Value {
-        Value::Map(
-            entries
-                .into_iter()
-                .map(|(key, value)| (string(key), value))
-                .collect(),
-        )
+        Value::Map(entries.into_iter().map(|(key, value)| (string(key), value)).collect())
     }
 
     #[test]
@@ -64,10 +57,7 @@ mod tests {
         let expected = map([
             (
                 "database",
-                map([
-                    ("host", string("database.internal")),
-                    ("port", Value::U16(5432)),
-                ]),
+                map([("host", string("database.internal")), ("port", Value::U16(5432))]),
             ),
             ("servers", Value::Seq(vec![string("profile")])),
         ]);
@@ -77,9 +67,6 @@ mod tests {
 
     #[test]
     fn later_root_value_wins() {
-        assert_eq!(
-            merge_values(&[string("default"), string("profile")]),
-            string("profile")
-        );
+        assert_eq!(merge_values(&[string("default"), string("profile")]), string("profile"));
     }
 }

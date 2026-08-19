@@ -15,8 +15,8 @@ pub enum SelectorError {
 impl Display for SelectorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ParsingError(str) => write!(f, "{}", &str),
-            SelectionError(str) => write!(f, "{}", &str),
+            ParsingError(str) => write!(f, "{}", str),
+            SelectionError(str) => write!(f, "{}", str),
         }
     }
 }

@@ -18,9 +18,8 @@ pub fn resolve(value: ConfigValue) -> String {
                     Ok(str) => {
                         if let Some(selector) = &exp.selector {
                             let selected_selector = selector::get_selector(selector.kind.as_str());
-                            let selection_result = &selected_selector
-                                .select(&str, &selector.query)
-                                .unwrap_or_else(|err| {
+                            let selection_result =
+                                &selected_selector.select(&str, &selector.query).unwrap_or_else(|err| {
                                     panic!(
                                         "Couldn't select value for {} with query {} : {}",
                                         exp.key, selector.query, err
@@ -36,7 +35,7 @@ pub fn resolve(value: ConfigValue) -> String {
                         }
                     }
                     Err(err) => {
-                        log::debug!("Couldn't resolve {} with error : {}", &exp.key, err);
+                        log::debug!("Couldn't resolve {} with error : {}", exp.key, err);
                         result.push_str(&exp.get_default_or_panic());
                     }
                 }
