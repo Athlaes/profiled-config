@@ -1,5 +1,7 @@
 pub mod ast;
 
+use toml::de;
+
 use crate::parser::ast::{ConfigExpression, ConfigValue, ConfigValueParts, SelectorExpression};
 use std::fmt::Display;
 
@@ -59,6 +61,8 @@ impl<'a> ConfigValueParser<'a> {
             delimiter.push(c);
             if stop.iter().any(|s| s.starts_with(delimiter.as_str())) && !self.in_literal {
                 if stop.iter().any(|s| s.eq(&delimiter.as_str())) {
+                    self.position += c.len_utf8();
+                    self.position -= delimiter.len();
                     break;
                 }
             } else {
