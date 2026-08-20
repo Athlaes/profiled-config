@@ -17,10 +17,7 @@ pub fn profiled_config(attr: TokenStream, item: TokenStream) -> TokenStream {
         .into()
 }
 
-fn expand_profiled_config(
-    function: ItemFn,
-    args: ProfiledConfigArgs,
-) -> syn::Result<proc_macro2::TokenStream> {
+fn expand_profiled_config(function: ItemFn, args: ProfiledConfigArgs) -> syn::Result<proc_macro2::TokenStream> {
     if function.sig.ident != "main" {
         return Err(syn::Error::new(
             function.sig.ident.span(),

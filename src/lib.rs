@@ -12,7 +12,11 @@ use serde_core::de::DeserializeOwned;
 
 mod loader;
 mod merger;
+mod parser;
 mod processor;
+mod provider;
+mod resolver;
+mod selector;
 
 #[derive(Debug)]
 enum ConfigError {
@@ -49,8 +53,7 @@ macro_rules! load_config {
     () => {{
         use $crate::include_dir;
 
-        static CONFIG_FOLDER: include_dir::Dir<'static> =
-            include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
+        static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
 
         $crate::load_config_from_dir(&CONFIG_FOLDER)
     }};
@@ -64,6 +67,6 @@ where
     let profiles = ConfigArgs::parse().profiles;
     let files_content = loader::load_values(config_folder, &profiles);
     let merged_content = merger::merge_values(&files_content);
-    let processed_content = processor::compute_any(&merged_content);
+    let processed_content = processor::process_any(&merged_content);
     T::deserialize(processed_content).expect("Couldn't deserialize configuration")
 }

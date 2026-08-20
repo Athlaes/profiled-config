@@ -1,47 +1,33 @@
-use std::{collections::BTreeMap, env};
+use std::collections::BTreeMap;
 
 use serde_value::Value;
 
-fn compute_table(table: &BTreeMap<Value, Value>) -> BTreeMap<Value, Value> {
-    let mut computed_table = table.clone();
-    for (key, value) in table.iter() {
-        let computed_value = compute_any(value);
-        computed_table.insert(key.clone(), computed_value);
-    }
-    computed_table
-}
+use crate::{parser::ConfigValueParser, resolver};
 
-pub fn compute_any(value: &Value) -> Value {
+pub fn process_any(value: &Value) -> Value {
     match value {
-        Value::String(val) => Value::String(compute_string(val)),
-        Value::Seq(arr) => Value::Seq(compute_array(arr)),
-        Value::Map(tab) => Value::Map(compute_table(tab)),
+        Value::String(val) => Value::String(process_string(val)),
+        Value::Seq(arr) => Value::Seq(process_array(arr)),
+        Value::Map(tab) => Value::Map(process_table(tab)),
         _ => value.clone(),
     }
 }
 
-fn compute_string(val: &str) -> String {
-    let regxp = regex::Regex::new(r"\$\{([:/a-zA-Z0-9_-]*)\}")
-        .unwrap_or_else(|e| panic!("Couldn't parse regex: {}", e));
-    let mut value = val.to_string();
-    for capture in regxp.captures_iter(val) {
-        let var_name = &capture[1];
-        let var_value = compute_env_var(var_name);
-        value = value.replace(&capture[0], var_value.as_str());
+fn process_table(table: &BTreeMap<Value, Value>) -> BTreeMap<Value, Value> {
+    let mut processd_table = table.clone();
+    for (key, value) in table.iter() {
+        let processd_value = process_any(value);
+        processd_table.insert(key.clone(), processd_value);
     }
-    value
+    processd_table
 }
 
-fn compute_array(arr: &[Value]) -> Vec<Value> {
-    arr.iter().map(compute_any).collect()
+fn process_string(val: &str) -> String {
+    resolver::resolve(ConfigValueParser::new(val).parse_value().unwrap())
 }
 
-fn compute_env_var(var_name: &str) -> String {
-    let splitted_values = var_name.split(':').collect::<Vec<&str>>();
-    if splitted_values.len() >= 2 {
-        return env::var(splitted_values[0]).unwrap_or(splitted_values[1..].join(":"));
-    }
-    env::var(splitted_values[0]).unwrap_or_else(|e| panic!("Couldn't find env var: {}", e))
+fn process_array(arr: &[Value]) -> Vec<Value> {
+    arr.iter().map(process_any).collect()
 }
 
 #[cfg(test)]
@@ -49,6 +35,7 @@ mod tests {
     use std::sync::{Mutex, MutexGuard};
 
     use super::*;
+    use std::env;
 
     static ENVIRONMENT: Mutex<()> = Mutex::new(());
     const MISSING_ENV_VAR: &str = "PROFILED_CONFIG_TEST_MISSING_ENV_VAR";
@@ -59,12 +46,7 @@ mod tests {
     }
 
     fn map(entries: impl IntoIterator<Item = (&'static str, Value)>) -> Value {
-        Value::Map(
-            entries
-                .into_iter()
-                .map(|(key, value)| (string(key), value))
-                .collect(),
-        )
+        Value::Map(entries.into_iter().map(|(key, value)| (string(key), value)).collect())
     }
 
     fn configuration(profile_name: &str, database_url: Option<&str>) -> Value {
@@ -76,7 +58,7 @@ mod tests {
                     "aia",
                     map([(
                         "url",
-                        string("${SERVICE_PROTOCOL}://${SERVICE_HOST}:${SERVICE_PORT}"),
+                        string("${env:SERVICE_PROTOCOL}://${env:SERVICE_HOST}:${env:SERVICE_PORT}"),
                     )]),
                 )]),
             ),
@@ -104,13 +86,15 @@ mod tests {
     }
 
     fn init_env() -> MutexGuard<'static, ()> {
-        let guard = ENVIRONMENT
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let guard = ENVIRONMENT.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         unsafe {
             env::set_var("SERVICE_PROTOCOL", "http");
             env::set_var("SERVICE_HOST", "localhost");
             env::set_var("SERVICE_PORT", "8080");
+            env::set_var(
+                "JSON_DATABASE_URL",
+                "{\"database\": {\"host\": \"localhost:5432\", \"credentials\": {\"username\": \"root\", \"password\": \"root\"}, \"db_name\": \"dummy_db\"}}",
+            );
             env::remove_var(MISSING_ENV_VAR);
             env::remove_var(DATABASE_URL);
         }
@@ -118,10 +102,10 @@ mod tests {
     }
 
     #[test]
-    fn success_compute_any() {
+    fn success_process_any() {
         let _environment = init_env();
         let value = configuration("default", None);
-        let result = compute_any(&value);
+        let result = process_any(&value);
         assert_eq!(
             nested_string(&result, &["clients", "aia", "url"]),
             "http://localhost:8080"
@@ -129,13 +113,30 @@ mod tests {
     }
 
     #[test]
+    fn success_process_json_path() {
+        let _environment = init_env();
+        let value = configuration(
+            "default",
+            Some(
+                "jdbc:postgresql://${env:JSON_DATABASE_URL(jsonpath:$.database.credentials.username)}:${env:JSON_DATABASE_URL(jsonpath:$.database.credentials.password)}@${env:JSON_DATABASE_URL(jsonpath:$.database.host)}/${env:JSON_DATABASE_URL(jsonpath:$.database.db_name)}",
+            ),
+        );
+        let result = process_any(&value);
+        assert_eq!(nested_string(&result, &["profile", "name"]), "default");
+        assert_eq!(
+            nested_string(&result, &["database", "url"]),
+            "jdbc:postgresql://root:root@localhost:5432/dummy_db"
+        );
+    }
+
+    #[test]
     fn success_missing_var_with_default() {
         let _environment = init_env();
         let value = configuration(
-            "${PROFILED_CONFIG_TEST_MISSING_ENV_VAR:test}",
-            Some("${PROFILED_CONFIG_TEST_DATABASE_URL:postgres://localhost:5432}"),
+            "${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR:test}",
+            Some("${env:PROFILED_CONFIG_TEST_DATABASE_URL:postgres://localhost:5432}"),
         );
-        let result = compute_any(&value);
+        let result = process_any(&value);
         assert_eq!(nested_string(&result, &["profile", "name"]), "test");
         assert_eq!(
             nested_string(&result, &["database", "url"]),
@@ -145,9 +146,9 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn panic_compute_any_on_missing_env_var() {
+    fn panic_process_any_on_missing_env_var() {
         let _environment = init_env();
-        let value = configuration("${PROFILED_CONFIG_TEST_MISSING_ENV_VAR}", None);
-        compute_any(&value);
+        let value = configuration("${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR}", None);
+        process_any(&value);
     }
 }
