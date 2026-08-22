@@ -9,6 +9,12 @@ struct Config {
     pub app_version: String,
     pub profile: Profile,
     pub tabs_test: Tabs,
+    pub overrides: Overrides,
+}
+
+#[derive(serde::Deserialize)]
+struct Overrides {
+    pub working: bool,
 }
 
 #[derive(serde::Deserialize)]
@@ -56,6 +62,7 @@ async fn main(config: Config) {
             ("key2".to_string(), "value2".to_string())
         ])
     );
+    assert!(config.overrides.working);
     assert_eq!(config.tabs_test.tabs_1, vec![0, 1]);
     assert_eq!(config.tabs_test.tabs_2, vec!["hello".to_string(), "work".to_string()]);
     info!("Test succeeded");
