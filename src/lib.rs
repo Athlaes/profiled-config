@@ -68,5 +68,5 @@ where
     let files_content = loader::load_values(config_folder, &profiles);
     let merged_content = merger::merge_values(&files_content);
     let processed_content = processor::process_any(&merged_content);
-    T::deserialize(processed_content).expect("Couldn't deserialize configuration")
+    T::deserialize(processed_content).unwrap_or_else(|err| panic!("Couldn't deserialize configuration : {err}"))
 }

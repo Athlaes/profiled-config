@@ -1,7 +1,10 @@
-use std::ffi::OsStr;
+use std::{
+    ffi::OsStr,
+    fs::{self},
+};
 
 use include_dir::{Dir, File};
-use log::warn;
+use log::{error, warn};
 use serde_value::Value;
 
 use crate::ConfigError;
@@ -10,9 +13,11 @@ type Parser = fn(&str) -> Result<Value, ConfigError>;
 
 pub fn load_values(config_folder: &Dir<'_>, profiles: &[String]) -> Vec<Value> {
     let mut files_values: Vec<Value> = Vec::new();
+    // Load default config
     let default_value =
         load_profile(config_folder, "default").unwrap_or_else(|e| panic!("Couldn't load default config: {e}"));
     files_values.push(default_value);
+    // Load profiled config
     for profile in profiles {
         match load_profile(config_folder, profile) {
             Ok(value) => {
@@ -23,7 +28,39 @@ pub fn load_values(config_folder: &Dir<'_>, profiles: &[String]) -> Vec<Value> {
             }
         }
     }
+    // Load config overrides
+    if let Some(value) = load_override_file_value() {
+        files_values.push(value);
+    }
+
     files_values
+}
+
+fn load_override_file_value() -> Option<Value> {
+    let paths = fs::read_dir("./")
+        .map_err(|err| warn!("Couldn't read current folder: {err}"))
+        .ok()?;
+
+    let Some(file) = paths
+        .filter_map(Result::ok)
+        .find(|entry| entry.file_name().to_str().is_some_and(|n| n.starts_with("overrides.")))
+    else {
+        warn!("No override file found");
+        return None;
+    };
+
+    let path = file.path();
+    let ext = path.file_name()?.to_str().and_then(|f| f.rsplit(".").next())?;
+    let parser = get_file_parser(&ext)
+        .map_err(|err| error!("Couldn't get parser for {} : {err}", path.display()))
+        .ok()?;
+    let content = fs::read_to_string(&path)
+        .map_err(|err| error!("Couldn't get file content for {} : {err}", path.display()))
+        .ok()?;
+
+    parser(&content)
+        .map_err(|err| error!("Couldn't parse file {} : {err}", path.display()))
+        .ok()
 }
 
 fn load_profile(config_folder: &Dir<'_>, profile: &str) -> Result<Value, ConfigError> {
