@@ -11,3 +11,7 @@ map_inline = { "key1" = "value1", "key2" = "value2" }
 [tabs_test.map]
 key1 = "value1"
 key2 = "value2"
+
+[test]
+overrided = false
+value = "default_value"

@@ -24,3 +24,15 @@ fn loads_default_configuration_without_profile() {
 fn loads_dev_profile_configuration() {
     run_profiled_config(&["--profiles", "dev"]);
 }
+
+#[test]
+fn loads_multiple_overrides_cli_args() {
+    run_profiled_config(&[
+        "--profiles",
+        "overrided",
+        "--overrides",
+        "test.overrided=true",
+        "--overrides",
+        "test.value=overrided_value",
+    ]);
+}

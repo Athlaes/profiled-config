@@ -46,6 +46,8 @@ impl Display for ConfigError {
 struct ConfigArgs {
     #[arg(short, long, value_delimiter = ',')]
     profiles: Vec<String>,
+    #[arg(short, long, value_delimiter = ',')]
+    overrides: Vec<String>,
 }
 
 #[macro_export]
@@ -65,7 +67,8 @@ where
     T: DeserializeOwned,
 {
     let profiles = ConfigArgs::parse().profiles;
-    let files_content = loader::load_values(config_folder, &profiles);
+    let overrides = ConfigArgs::parse().overrides;
+    let files_content = loader::load_values(&config_folder, &profiles, &overrides);
     let merged_content = merger::merge_values(&files_content);
     let processed_content = processor::process_any(&merged_content);
     T::deserialize(processed_content).unwrap_or_else(|err| panic!("Couldn't deserialize configuration : {err}"))
