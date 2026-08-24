@@ -42,7 +42,7 @@ async fn main(config: Config) {
         "default" => {
             info!("Default profile loaded");
             assert_eq!("1.0.0", config.app_version);
-            assert!(config.test.overrided == false);
+            assert!(!config.test.overrided);
             assert_eq!(config.test.value, "default_value");
         }
         "overrided" => {

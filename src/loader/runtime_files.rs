@@ -20,7 +20,7 @@ pub fn load(directory: &Path) -> Option<Value> {
 
     let path = file.path();
     let ext = path.file_name()?.to_str().and_then(|f| f.rsplit(".").next())?;
-    let parser = get_file_parser(&ext)
+    let parser = get_file_parser(ext)
         .map_err(|err| error!("Couldn't get parser for {} : {err}", path.display()))
         .ok()?;
     let content = fs::read_to_string(&path)
