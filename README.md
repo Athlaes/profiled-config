@@ -1,86 +1,118 @@
 # profiled-config
 
-[![CI](https://github.com/Athlaes/profiled-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/Athlaes/profiled-rust/actions/workflows/ci.yml)
+[![CI](https://github.com/Athlaes/profiled-config/actions/workflows/ci.yml/badge.svg)](https://github.com/Athlaes/profiled-config/actions/workflows/ci.yml)
 
-`profiled-config` is a small Rust library for typed, profile-based
-configuration, inspired by Spring profiles. Configuration files can use TOML,
-JSON, YAML, or INI.
-
-Configuration files are embedded in the application binary at compile time. At
-startup, the library loads the default configuration, applies the selected
-profiles in order, resolves environment variables, and deserializes the result
-into a Rust type.
+Typed, profile-based configuration for Rust: embed defaults in the binary,
+select profiles at startup, apply runtime overrides, and receive the result as a
+Serde type in `main`.
 
 > [!WARNING]
-> The project is still at an early stage. The API may change, and the crate is
-> not yet recommended for production use.
+> This project is at an early stage. Its API may change, and it is not yet
+> recommended for production use.
 
-## Features
+## Why this crate?
 
-- TOML, JSON, YAML, or INI configuration embedded directly in the application
-  binary
-- strongly typed configuration through Serde
-- one or more profiles selected from the command line
-- predictable, ordered profile merging
-- environment variable interpolation
-- optional fallback values for environment variables
-- a `#[profiled_config]` attribute for synchronous and asynchronous entry
-  points
+Layered, typed configuration is already well covered by crates such as
+[`config`](https://crates.io/crates/config),
+[`Figment`](https://crates.io/crates/figment), and
+[`confique`](https://crates.io/crates/confique). `profiled-config` does not try
+to replace them. It packages a narrower workflow into one convention:
 
-## Installation
+- `config/default.*` and named profiles are embedded automatically;
+- built-in CLI flags select profiles and override individual values;
+- sources follow a fixed, predictable priority order;
+- the merged result is deserialized and passed directly to `main`.
 
-Add the library from crates.io and enable the `macros` feature:
+Choose it when this exact workflow matches your application and you would
+rather avoid configuring providers or builders. Choose a general-purpose crate
+when you need custom sources, hot reload, provenance tracking, remote
+configuration, or a different merging strategy.
+
+## Usage
+
+TOML is enabled by default. Install the crate and its optional entry-point
+macro with:
 
 ```shell
 cargo add profiled_config --features macros
 ```
 
-TOML support is enabled by default. The other formats are opt-in Cargo
-features:
+The crate expects `config/default.<extension>` and applies sources in this
+order, with later values taking priority:
 
-| Format | File extensions | Cargo feature | Enabled by default |
-| --- | --- | --- | --- |
-| TOML | `.toml` | `toml` | Yes |
-| JSON | `.json` | `json` | No |
-| YAML | `.yaml`, `.yml` | `yaml` | No |
-| INI | `.ini` | `ini` | No |
+1. embedded default;
+2. embedded profiles selected by `--profiles` / `-p`;
+3. one optional `overrides.<extension>` file from the working directory;
+4. values passed through `--overrides` / `-o`;
+5. environment expression resolution;
+6. Serde deserialization.
 
-Enable every format alongside the attribute macro with:
+Maps merge recursively; later scalars and arrays replace earlier ones. Embedded
+files require a rebuild, while profiles and overrides are selected at runtime.
+
+Profiles can be chained from left to right:
 
 ```shell
-cargo add profiled_config --features macros,json,yaml,ini
+cargo run -- --profiles development,local
 ```
 
-At least one format feature must be enabled for configuration loading. INI is
-limited by its format: keys and values are read as strings, and sequences are
-not supported.
+CLI overrides use `<dotted.path>=<value>` and can be repeated or separated by
+commas:
 
-## Quick start
+```shell
+cargo run -- --overrides server.port=9090,features.cache=true
+```
 
-Create a `config/default.toml` file at the root of your application:
+Values are parsed as JSON scalars first, preserving booleans and numbers;
+otherwise they remain strings. Only the first `=` is a separator, and the last
+value for the same path wins. The resulting type must match the Rust field.
+
+Environment variables use `${env:NAME}` or `${env:NAME:fallback}` inside any
+string. A missing variable without a fallback stops loading.
+
+JSON is always supported. TOML uses the default `toml` feature; YAML and INI
+use the `yaml` and `ini` features. Formats can be mixed between profiles. INI
+supports only string keys and values, not sequences.
+
+### Secondary API
+
+`#[profiled_config]` supports synchronous and asynchronous `main` functions.
+Its only option is a synchronous hook called before loading:
+
+```rust
+#[profiled_config(before_load = initialize_logging)]
+fn main(config: AppConfig) {
+    // ...
+}
+```
+
+Keep it above runtime attributes such as `#[tokio::main]`. The macro is only a
+convenience; without the `macros` feature, use
+`let config: AppConfig = profiled_config::load_config!();` directly.
+
+## Complete example
 
 ```toml
+# config/default.toml
 app_name = "my-service"
 port = 8080
 
 [database]
-url = "${DATABASE_URL:postgres://localhost/my-service}"
+url = "${env:DATABASE_URL:postgres://localhost/my-service}"
 ```
-
-Define a matching Rust type and add `#[profiled_config]` to `main`:
 
 ```rust
 use profiled_config::profiled_config;
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 struct AppConfig {
     app_name: String,
     port: u16,
     database: DatabaseConfig,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 struct DatabaseConfig {
     url: String,
 }
@@ -91,216 +123,18 @@ fn main(config: AppConfig) {
 }
 ```
 
-The annotated `main` function must take the configuration as its only argument.
-`profiled-config` loads and deserializes the configuration before calling it.
-
-Run the application normally to use `config/default.toml`:
-
-```shell
-cargo run
-```
-
-Because the `config` directory is embedded at compile time, configuration file
-changes require rebuilding the application.
-
-## Using profiles
-
-Add one configuration file per profile next to the default file:
-
-```text
-config/
-├── default.toml
-├── development.json
-└── local.yaml
-```
-
-Formats can be mixed as long as their Cargo features are enabled. Each profile
-name must be unique: do not create both `development.toml` and
-`development.json`, for example.
-
-For example, `config/development.json` can override only the values needed for
-development:
+An optional `config/development.json` can contain only what changes:
 
 ```json
 {
-  "port": 3000,
-  "database": {
-    "url": "postgres://localhost/my-service-dev"
-  }
+  "port": 3000
 }
 ```
-
-Select profiles with `--profiles` (or `-p`):
 
 ```shell
-cargo run -- --profiles development
+cargo run -- --profiles development --overrides port=9090
 ```
-
-Multiple profiles can be provided as a comma-separated list:
-
-```shell
-cargo run -- --profiles development,local
-```
-
-The files are applied from left to right:
-
-1. `default.toml`
-2. `development.json`
-3. `local.yaml`
-
-Later profiles override earlier ones. Objects or tables are merged recursively;
-scalar values and arrays are replaced. A selected profile that cannot be loaded
-is logged and skipped. The default profile is required and stops loading when
-it is missing, ambiguous, invalid, or uses a format whose feature is disabled.
-
-## Environment variables
-
-Environment expressions can be used in any string value, including strings
-nested in objects, tables, or arrays.
-
-Use `${VARIABLE}` when the variable is required:
-
-```toml
-api_key = "${API_KEY}"
-```
-
-Use `${VARIABLE:fallback}` to provide a value when the variable is not set:
-
-```toml
-host = "${HOST:127.0.0.1}"
-```
-
-Loading fails if a required environment variable is missing.
-
-## Macro attributes
-
-The `#[profiled_config]` macro currently supports one optional attribute:
-`before_load`.
-
-### `before_load`
-
-`before_load` specifies a synchronous, zero-argument function to call
-immediately before command-line arguments and configuration files are loaded.
-It is useful for setting up logging or preparing environment variables needed
-by the configuration.
-
-```rust
-use profiled_config::profiled_config;
-use serde::Deserialize;
-
-#[derive(Deserialize)]
-struct AppConfig {
-    app_name: String,
-}
-
-fn initialize() {
-    env_logger::init();
-}
-
-#[profiled_config(before_load = initialize)]
-fn main(config: AppConfig) {
-    println!("{}", config.app_name);
-}
-```
-
-A qualified function path is also accepted:
-
-```rust
-#[profiled_config(before_load = startup::initialize)]
-fn main(config: AppConfig) {
-    // ...
-}
-```
-
-No other macro attributes are currently available. Unknown attributes and
-additional tokens produce a compile-time error.
-
-## Async runtimes
-
-The macro supports `async fn main` and preserves other attributes placed below
-it. This allows runtime macros to be used on the generated entry point:
-
-```rust
-#[profiled_config(before_load = initialize)]
-#[tokio::main]
-async fn main(config: AppConfig) {
-    // ...
-}
-```
-
-Keep `#[profiled_config]` above the runtime attribute.
-
-## Loading without the attribute macro
-
-The configuration can also be loaded directly. In that case, the `macros`
-feature is not required (this command keeps the default TOML support):
-
-```shell
-cargo add profiled_config
-```
-
-```rust
-use serde::Deserialize;
-
-#[derive(Deserialize)]
-struct AppConfig {
-    app_name: String,
-}
-
-fn main() {
-    let config: AppConfig = profiled_config::load_config!();
-    println!("{}", config.app_name);
-}
-```
-
-## How loading works
-
-At startup, `profiled-config`:
-
-1. finds the embedded `config/default.<extension>` file;
-2. finds each selected `<profile>.<extension>` file;
-3. merges the files in profile order;
-4. resolves environment expressions;
-5. deserializes the result into the type expected by `main`.
-
-The extension selects the parser and must have its matching Cargo feature
-enabled. Invalid default configuration, unresolved required environment
-variables, and deserialization errors stop the application with an error.
-
-## Development and releases
-
-Feature branches are merged into `develop`. Every push to `develop` produces a
-source snapshot artifact using the version declared once in
-`[workspace.package]`, such as `0.3.0-SNAPSHOT`. Both published crates inherit
-that version, which remains unchanged throughout the development cycle. The
-regular CI only reads it and never rewrites a manifest. Snapshots are retained
-by GitHub Actions for 14 days; they do not create a Git tag, a GitHub Release,
-or a crates.io version.
-
-Merging `develop` into `main` removes the `-SNAPSHOT` suffix only in the release
-checkout and creates the corresponding stable release (`0.4.0-SNAPSHOT`
-becomes `0.4.0`). The workflow also injects the crates.io version of the local
-proc-macro dependency in that checkout. Once the release is complete, it
-increments the minor component, resets the patch to zero, and updates
-`develop` once with the next workspace snapshot version (`0.5.0-SNAPSHOT`).
-Patch increments are reserved for a future hotfix workflow.
-
-Developers do not edit package versions during day-to-day work. The release
-workflow creates the `X.Y.Z` tag and GitHub Release, then publishes the
-proc-macro followed by the main crate.
-
-## Contributing and feedback
-
-Feedback, ideas, bug reports, and real-world use cases are very welcome. I hope
-to keep improving this project and let it grow with the needs of the people
-using it, so please feel free to open an issue or start a discussion—even a
-small suggestion can help shape what comes next.
 
 ## License
 
-This project is available under the [MIT License](LICENCE).
-
-## Acknowledgements
-
-The project is inspired by Spring's profile-based configuration model. It is
-not affiliated with Spring and does not aim to reproduce its complete API.
+[MIT](LICENCE). Inspired by Spring profiles; not affiliated with Spring.

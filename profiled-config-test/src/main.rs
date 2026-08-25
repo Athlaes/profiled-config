@@ -9,6 +9,13 @@ struct Config {
     pub app_version: String,
     pub profile: Profile,
     pub tabs_test: Tabs,
+    pub test: Test,
+}
+
+#[derive(serde::Deserialize)]
+struct Test {
+    pub overrided: bool,
+    pub value: String,
 }
 
 #[derive(serde::Deserialize)]
@@ -35,6 +42,14 @@ async fn main(config: Config) {
         "default" => {
             info!("Default profile loaded");
             assert_eq!("1.0.0", config.app_version);
+            assert!(!config.test.overrided);
+            assert_eq!(config.test.value, "default_value");
+        }
+        "overrided" => {
+            info!("Default profile loaded");
+            assert_eq!("1.0.0", config.app_version);
+            assert!(config.test.overrided);
+            assert_eq!(config.test.value, "overrided_value");
         }
         "dev" => {
             info!("Dev profile loaded");
