@@ -12,13 +12,13 @@ mod runtime_files;
 
 #[derive(Debug, Error)]
 pub enum LoaderError {
-    #[error("Couldn't open current folder : {source_str}")]
+    #[error("Couldn't open current folder : '{source_str}'")]
     CurrentFolderNotReadable { source_str: String },
-    #[error("File '{file_name} not found'")]
+    #[error("File '{file_name}' not found")]
     FileNotFound { file_name: String },
     #[error("File extension not found for file '{file_name}'")]
     FileExtensionNotFound { file_name: String },
-    #[error("Couldn't open current folder : {source_str}")]
+    #[error("Couldn't open current folder : '{source_str}'")]
     FileNotReadable { file_name: String, source_str: String },
     #[error("Multiple file '{file_name}' found")]
     MultipleFileFound { file_name: String },
@@ -26,10 +26,8 @@ pub enum LoaderError {
     NoContent { file_name: String },
     #[error("{0}")]
     ParseError(String),
-    #[error("Found file with ext {ext} which is not supported or feature is not enabled")]
+    #[error("Found file with ext '{ext}' which is not supported or feature is not enabled")]
     NotSupportedExtension { ext: String },
-    #[error("Multiple file found with same name '{file_name}'")]
-    MultipleFileWithSameName { file_name: String },
 }
 
 pub fn load_values(

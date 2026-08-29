@@ -31,7 +31,7 @@ fn parse_value(value: &str) -> Value {
     serde_json::from_str(value).unwrap_or_else(|_| Value::String(value.to_string()))
 }
 
-fn update_map(root: &mut BTreeMap<Value, Value>, keys: &[&str], value: Value) -> () {
+fn update_map(root: &mut BTreeMap<Value, Value>, keys: &[&str], value: Value) {
     let key = Value::String(keys[0].to_string());
     if keys.len() == 1 {
         root.insert(key, value);

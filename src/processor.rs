@@ -52,7 +52,7 @@ fn process_array(arr: &[Value]) -> Result<Vec<Value>, Vec<ResolverError>> {
 }
 
 fn process_string(val: &str) -> Result<String, ResolverError> {
-    Ok(resolver::resolve(val)?)
+    resolver::resolve(val)
 }
 
 #[cfg(test)]

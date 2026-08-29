@@ -26,11 +26,7 @@ impl ConfigExpression {
         self.default.clone().ok_or(ExpressionParserError::MissingDefaultValue {
             provider: self.provider.clone(),
             key: self.key.clone(),
-            selector: self
-                .selector
-                .clone()
-                .and_then(|s| Some(s.kind))
-                .unwrap_or(String::new()),
+            selector: self.selector.clone().map(|s| s.kind).unwrap_or_default(),
         })
     }
 }

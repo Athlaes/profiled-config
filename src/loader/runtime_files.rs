@@ -35,5 +35,5 @@ pub fn load(directory: &Path) -> Result<Option<Value>, LoaderError> {
         source_str: err.to_string(),
     })?;
 
-    parser(&content).map(|v| Some(v))
+    parser(&content).map(Some)
 }

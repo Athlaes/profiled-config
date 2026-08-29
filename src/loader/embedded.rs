@@ -13,7 +13,7 @@ pub fn load_profile(config_folder: &Dir<'_>, profile: &str) -> Result<Value, Loa
         file_name: profile.to_string(),
     })?;
 
-    if let Some(_) = files.next() {
+    if files.next().is_some() {
         return Err(LoaderError::MultipleFileFound {
             file_name: profile.to_string(),
         });

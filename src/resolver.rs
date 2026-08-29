@@ -9,11 +9,11 @@ use crate::{
 #[derive(Debug, Error)]
 pub enum ResolverError {
     #[error("Selection error: {0}")]
-    SelectionError(#[from] SelectorError),
+    Selection(#[from] SelectorError),
     #[error("Expression parse error: {0}")]
-    ExpressionParseError(#[from] ExpressionParserError),
+    ExpressionParse(#[from] ExpressionParserError),
     #[error("Provide error: {0}")]
-    ProvideError(#[from] ProviderError),
+    Provide(#[from] ProviderError),
 }
 
 pub fn resolve(value: &str) -> Result<String, ResolverError> {
