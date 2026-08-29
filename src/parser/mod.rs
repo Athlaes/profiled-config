@@ -1,21 +1,21 @@
 pub mod ast;
 
+use thiserror::Error;
+
 use crate::parser::ast::{ConfigExpression, ConfigValue, ConfigValueParts, SelectorExpression};
-use std::fmt::Display;
 
-#[derive(Debug)]
-pub enum ParseError {
-    UnexpectedToken(String),
+#[derive(Debug, Error)]
+pub enum ExpressionParserError {
+    #[error("Unexpected empty value with no default for provider '{provider}', key '{key}', and selector '{selector}'")]
+    MissingDefaultValue {
+        provider: String,
+        key: String,
+        selector: String,
+    },
+    #[error("Expression parser encountered an unexpected token: '{token}'")]
+    UnexpectedToken { token: String },
+    #[error("{0}")]
     EndOfExpressionNotFound(String),
-}
-
-impl Display for ParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ParseError::UnexpectedToken(msg) => write!(f, "{}", msg),
-            ParseError::EndOfExpressionNotFound(msg) => write!(f, "{}", msg),
-        }
-    }
 }
 
 pub struct ConfigValueParser<'a> {
@@ -81,7 +81,7 @@ impl<'a> ConfigValueParser<'a> {
         }
     }
 
-    pub fn parse_value(&mut self) -> Result<ConfigValue, ParseError> {
+    pub fn parse_value(&mut self) -> Result<ConfigValue, ExpressionParserError> {
         let mut parts = vec![];
         while self.peek().is_some() {
             let literal = self.consume_until(vec!["${"]);
@@ -95,15 +95,13 @@ impl<'a> ConfigValueParser<'a> {
         Ok(ConfigValue { parts })
     }
 
-    fn parse_expression(&mut self) -> Result<ConfigExpression, ParseError> {
+    fn parse_expression(&mut self) -> Result<ConfigExpression, ExpressionParserError> {
         if !self.consume("${") {
-            return Err(ParseError::UnexpectedToken(
-                "Unexpected expression beginning token '$'".to_string(),
-            ));
+            return Err(ExpressionParserError::UnexpectedToken { token: "$".to_string() });
         }
         let provider = self.consume_until(vec![":"]);
         if !self.consume(":") {
-            return Err(ParseError::EndOfExpressionNotFound(
+            return Err(ExpressionParserError::EndOfExpressionNotFound(
                 "Provider not found, expected ':'".to_string(),
             ));
         }
@@ -111,7 +109,7 @@ impl<'a> ConfigValueParser<'a> {
         let selector = self.parse_selector()?;
         let default = self.parse_default();
         if !self.consume("}") {
-            return Err(ParseError::EndOfExpressionNotFound(format!(
+            return Err(ExpressionParserError::EndOfExpressionNotFound(format!(
                 "Missing end of expression '}}' at index {}",
                 self.cfg_value[..self.position].chars().count()
             )));
@@ -132,19 +130,19 @@ impl<'a> ConfigValueParser<'a> {
         Some(default)
     }
 
-    fn parse_selector(&mut self) -> Result<Option<SelectorExpression>, ParseError> {
+    fn parse_selector(&mut self) -> Result<Option<SelectorExpression>, ExpressionParserError> {
         if !self.consume("(") {
             return Ok(None);
         }
         let kind = self.consume_until(vec![":"]);
         if !self.consume(":") {
-            return Err(ParseError::EndOfExpressionNotFound(
+            return Err(ExpressionParserError::EndOfExpressionNotFound(
                 "Selector kind not found, expected ':'".to_string(),
             ));
         }
         let query = self.consume_until(vec![")"]);
         if !self.consume(")") {
-            return Err(ParseError::EndOfExpressionNotFound(format!(
+            return Err(ExpressionParserError::EndOfExpressionNotFound(format!(
                 "Missing end of selector expression ')' at index {}",
                 self.cfg_value[..self.position].chars().count()
             )));

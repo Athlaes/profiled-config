@@ -2,32 +2,57 @@ use std::collections::BTreeMap;
 
 use serde_value::Value;
 
-use crate::{parser::ConfigValueParser, resolver};
+use crate::resolver::{self, ResolverError};
 
-pub fn process_any(value: &Value) -> Value {
+pub fn process_any(value: &Value) -> Result<Value, Vec<ResolverError>> {
     match value {
-        Value::String(val) => Value::String(process_string(val)),
-        Value::Seq(arr) => Value::Seq(process_array(arr)),
-        Value::Map(tab) => Value::Map(process_table(tab)),
-        _ => value.clone(),
+        Value::String(val) => Ok(Value::String(process_string(val).map_err(|err| vec![err])?)),
+        Value::Seq(arr) => Ok(Value::Seq(process_array(arr)?)),
+        Value::Map(tab) => Ok(Value::Map(process_table(tab)?)),
+        _ => Ok(value.clone()),
     }
 }
 
-fn process_table(table: &BTreeMap<Value, Value>) -> BTreeMap<Value, Value> {
-    let mut processd_table = table.clone();
+fn process_table(table: &BTreeMap<Value, Value>) -> Result<BTreeMap<Value, Value>, Vec<ResolverError>> {
+    let mut processed_table = table.clone();
+    let mut errors = Vec::new();
     for (key, value) in table.iter() {
-        let processd_value = process_any(value);
-        processd_table.insert(key.clone(), processd_value);
+        match process_any(value) {
+            Ok(processed_value) => {
+                processed_table.insert(key.clone(), processed_value);
+            }
+            Err(err) => {
+                errors.extend(err);
+            }
+        }
     }
-    processd_table
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+    Ok(processed_table)
 }
 
-fn process_string(val: &str) -> String {
-    resolver::resolve(ConfigValueParser::new(val).parse_value().unwrap())
+fn process_array(arr: &[Value]) -> Result<Vec<Value>, Vec<ResolverError>> {
+    let mut processed_array = Vec::new();
+    let mut errors = Vec::new();
+    for value in arr {
+        match process_any(value) {
+            Ok(processed_value) => {
+                processed_array.push(processed_value);
+            }
+            Err(err) => {
+                errors.extend(err);
+            }
+        }
+    }
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+    Ok(processed_array)
 }
 
-fn process_array(arr: &[Value]) -> Vec<Value> {
-    arr.iter().map(process_any).collect()
+fn process_string(val: &str) -> Result<String, ResolverError> {
+    Ok(resolver::resolve(val)?)
 }
 
 #[cfg(test)]
@@ -105,7 +130,7 @@ mod tests {
     fn success_process_any() {
         let _environment = init_env();
         let value = configuration("default", None);
-        let result = process_any(&value);
+        let result = process_any(&value).unwrap();
         assert_eq!(
             nested_string(&result, &["clients", "aia", "url"]),
             "http://localhost:8080"
@@ -121,7 +146,7 @@ mod tests {
                 "jdbc:postgresql://${env:JSON_DATABASE_URL(jsonpath:$.database.credentials.username)}:${env:JSON_DATABASE_URL(jsonpath:$.database.credentials.password)}@${env:JSON_DATABASE_URL(jsonpath:$.database.host)}/${env:JSON_DATABASE_URL(jsonpath:$.database.db_name)}",
             ),
         );
-        let result = process_any(&value);
+        let result = process_any(&value).unwrap();
         assert_eq!(nested_string(&result, &["profile", "name"]), "default");
         assert_eq!(
             nested_string(&result, &["database", "url"]),
@@ -136,7 +161,7 @@ mod tests {
             "${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR:test}",
             Some("${env:PROFILED_CONFIG_TEST_DATABASE_URL:postgres://localhost:5432}"),
         );
-        let result = process_any(&value);
+        let result = process_any(&value).unwrap();
         assert_eq!(nested_string(&result, &["profile", "name"]), "test");
         assert_eq!(
             nested_string(&result, &["database", "url"]),
@@ -149,6 +174,6 @@ mod tests {
     fn panic_process_any_on_missing_env_var() {
         let _environment = init_env();
         let value = configuration("${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR}", None);
-        process_any(&value);
+        process_any(&value).unwrap();
     }
 }
