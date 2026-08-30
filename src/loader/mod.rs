@@ -92,6 +92,6 @@ mod tests {
         ];
         let directory = Dir::new("", &entries);
 
-        load_values(&directory, &["default".to_string()], &[]);
+        load_values(&directory, &["default".to_string()], &[]).unwrap();
     }
 }

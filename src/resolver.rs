@@ -16,25 +16,34 @@ pub enum ResolverError {
     Provide(#[from] ProviderError),
 }
 
-pub fn resolve(value: &str) -> Result<String, ResolverError> {
+pub fn resolve(initial_value: &str) -> Result<String, ResolverError> {
     let mut result = String::new();
-    let value = ConfigValueParser::new(value).parse_value()?;
-    for part in &value.parts {
+    let parsed_value = ConfigValueParser::new(initial_value).parse_value()?;
+    for part in &parsed_value.parts {
         match &part {
             ConfigValueParts::Literal(str) => {
                 result.push_str(str);
             }
             ConfigValueParts::Expression(exp) => {
                 let provider = provider::get_provider(&exp.provider)?;
-                let mut value = provider.resolve(&exp.key)?;
-                if let Some(selector) = &exp.selector {
-                    let selected_selector = selector::get_selector(selector.kind.as_str())?;
-                    value = selected_selector.select(&value, &selector.query)?;
-                }
-                if value.is_empty() {
-                    result.push_str(&exp.get_default()?);
-                } else {
-                    result.push_str(&value);
+                let expr_value = provider.resolve(&exp.key);
+                match expr_value {
+                    Ok(value) => {
+                        let mut tmp_val = value.clone();
+                        if let Some(selector) = &exp.selector {
+                            let selected_selector = selector::get_selector(selector.kind.as_str())?;
+                            tmp_val = selected_selector.select(&value, &selector.query)?;
+                        }
+                        if tmp_val.is_empty() {
+                            result.push_str(&exp.get_default()?);
+                        } else {
+                            result.push_str(&tmp_val);
+                        }
+                    }
+                    Err(err) => {
+                        log::error!("Error when resolving {initial_value} : {err}");
+                        return exp.get_default().map_err(ResolverError::from);
+                    }
                 }
             }
         }

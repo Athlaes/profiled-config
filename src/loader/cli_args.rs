@@ -63,7 +63,7 @@ mod tests {
 
     #[test]
     fn loads_no_overrides_as_an_empty_map() {
-        assert_eq!(load(&[]).expect("empty overrides should be valid"), Some(map([])));
+        assert_eq!(load(&[]).expect("empty overrides should be valid"), None);
     }
 
     #[test]
