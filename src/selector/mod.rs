@@ -6,14 +6,10 @@ pub mod json_path;
 
 #[derive(Debug, Error)]
 pub enum SelectorError {
-    #[error("Provider '{kind}' is not supported or feature is not enabled")]
+    #[error("Selector '{kind}' is not supported or feature is not enabled")]
     SelectorNotFound { kind: String },
-    #[error("Value {value} is not valid for format {format} : {source_str}")]
-    FormatError {
-        value: String,
-        format: String,
-        source_str: String,
-    },
+    #[error("Some value is not valid for format {format} : {source_str}")]
+    FormatError { format: String, source_str: String },
     #[error("Query {query} couldn't be parsed by selector {selector} : {source_str}")]
     QueryFormatError {
         query: String,

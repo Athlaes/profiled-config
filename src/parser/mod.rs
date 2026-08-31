@@ -45,12 +45,12 @@ impl<'a> ConfigValueParser<'a> {
             if escaped {
                 result.push(c);
                 escaped = false;
-                self.position += 1;
+                self.position += c.len_utf8();
                 continue;
             }
             if c == '\\' {
                 escaped = true;
-                self.position += 1;
+                self.position += c.len_utf8();
                 continue;
             }
             if c == '\'' || c == '\"' {
@@ -61,6 +61,7 @@ impl<'a> ConfigValueParser<'a> {
                 if stop.iter().any(|s| s.eq(&delimiter.as_str())) {
                     self.position += c.len_utf8();
                     self.position -= delimiter.len();
+                    delimiter = "".to_string();
                     break;
                 }
             } else {
@@ -68,6 +69,9 @@ impl<'a> ConfigValueParser<'a> {
                 delimiter = "".to_string();
             }
             self.position += c.len_utf8();
+        }
+        if !delimiter.is_empty() {
+            result.push_str(delimiter.as_str());
         }
         result
     }

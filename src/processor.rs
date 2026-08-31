@@ -180,6 +180,15 @@ mod tests {
     }
 
     #[test]
+    fn preserves_a_trailing_dollar_in_a_literal() {
+        let value = string("price$");
+
+        let result = process_any(&value).expect("a literal ending with '$' should be processed");
+
+        assert_eq!(result, string("price$"));
+    }
+
+    #[test]
     #[should_panic]
     fn panic_process_any_on_missing_env_var() {
         let _environment = init_env();

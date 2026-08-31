@@ -18,7 +18,7 @@ pub enum LoaderError {
     FileNotFound { file_name: String },
     #[error("File extension not found for file '{file_name}'")]
     FileExtensionNotFound { file_name: String },
-    #[error("Couldn't open current folder : '{source_str}'")]
+    #[error("Couldn't open file '{file_name}' : '{source_str}'")]
     FileNotReadable { file_name: String, source_str: String },
     #[error("Multiple file '{file_name}' found")]
     MultipleFileFound { file_name: String },

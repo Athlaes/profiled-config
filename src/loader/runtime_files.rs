@@ -10,13 +10,24 @@ pub fn load(directory: &Path) -> Result<Option<Value>, LoaderError> {
         source_str: err.to_string(),
     })?;
 
-    let Some(file) = paths
+    let overrrides_files = paths
         .filter_map(Result::ok)
-        .find(|entry| entry.file_name().to_str().is_some_and(|n| n.starts_with("overrides.")))
-    else {
+        .filter(|entry| {
+            entry.file_type().is_ok_and(|f| f.is_file())
+                && entry.file_name().to_str().is_some_and(|n| n.starts_with("overrides."))
+        })
+        .collect::<Vec<_>>();
+
+    let Some(file) = overrrides_files.first() else {
         info!("No override file found");
         return Ok(None);
     };
+
+    if overrrides_files.len() > 1 {
+        return Err(LoaderError::MultipleFileFound {
+            file_name: "overrides".to_string(),
+        });
+    }
 
     let path = file.path();
     let file_name = path

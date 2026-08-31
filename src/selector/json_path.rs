@@ -9,7 +9,6 @@ impl Selector for JsonPathSelector {
     fn select(&self, json_str: &str, query: &str) -> Result<String, SelectorError> {
         let json: Value = serde_json::from_str(json_str).map_err(|err| SelectorError::FormatError {
             format: "json".to_string(),
-            value: json_str.to_string(),
             source_str: err.to_string(),
         })?;
         let path = JsonPath::parse(query).map_err(|err| SelectorError::QueryFormatError {
