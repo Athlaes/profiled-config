@@ -47,6 +47,7 @@ profiled_config_macros = {
     path = "profiled-config-macros",
     optional = true
 }
+thiserror = "2.0.20"
 
 [dev-dependencies]
 rstest = "0.26.1"

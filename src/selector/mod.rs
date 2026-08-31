@@ -1,35 +1,33 @@
-use std::fmt::Display;
+use thiserror::Error;
 
-use crate::selector::{
-    SelectorError::{ParsingError, SelectionError},
-    json_path::JsonPathSelector,
-};
+use crate::selector::json_path::JsonPathSelector;
 
 pub mod json_path;
 
+#[derive(Debug, Error)]
 pub enum SelectorError {
-    ParsingError(String),
-    SelectionError(String),
+    #[error("Selector '{kind}' is not supported or feature is not enabled")]
+    SelectorNotFound { kind: String },
+    #[error("Some value is not valid for format {format} : {source_str}")]
+    FormatError { format: String, source_str: String },
+    #[error("Query {query} couldn't be parsed by selector {selector} : {source_str}")]
+    QueryFormatError {
+        query: String,
+        selector: String,
+        source_str: String,
+    },
+    #[error("Query {query} failed with error : {source_str}")]
+    QueryError { query: String, source_str: String },
 }
 
-impl Display for SelectorError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ParsingError(str) => write!(f, "{}", str),
-            SelectionError(str) => write!(f, "{}", str),
-        }
-    }
-}
-
+// TODO : Authorize Result<&Value, SelectorError> ?
 pub trait Selector {
-    fn select(&self, json_str: &str, query: &str) -> Result<String, SelectorError>;
+    fn select(&self, format_value: &str, query: &str) -> Result<String, SelectorError>;
 }
 
-pub fn get_selector(kind: &str) -> impl Selector {
+pub fn get_selector(kind: &str) -> Result<impl Selector, SelectorError> {
     match kind {
-        "jsonpath" => JsonPathSelector,
-        _ => {
-            panic!("Provider '{kind}' not supported or feature is not enabled")
-        }
+        "jsonpath" => Ok(JsonPathSelector),
+        _ => Err(SelectorError::SelectorNotFound { kind: kind.to_string() }),
     }
 }

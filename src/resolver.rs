@@ -1,46 +1,52 @@
+use thiserror::Error;
+
 use crate::{
-    parser::ast::{ConfigValue, ConfigValueParts},
-    provider::{self, Provider},
-    selector::{self, Selector},
+    parser::{ConfigValueParser, ExpressionParserError, ast::ConfigValueParts},
+    provider::{self, Provider, ProviderError},
+    selector::{self, Selector, SelectorError},
 };
 
-pub fn resolve(value: ConfigValue) -> String {
+#[derive(Debug, Error)]
+pub enum ResolverError {
+    #[error("Selection error: {0}")]
+    Selection(#[from] SelectorError),
+    #[error("Expression parse error: {0}")]
+    ExpressionParse(#[from] ExpressionParserError),
+    #[error("Provide error: {0}")]
+    Provide(#[from] ProviderError),
+}
+
+pub fn resolve(initial_value: &str) -> Result<String, ResolverError> {
     let mut result = String::new();
-    for part in &value.parts {
+    let parsed_value = ConfigValueParser::new(initial_value).parse_value()?;
+    for part in &parsed_value.parts {
         match &part {
             ConfigValueParts::Literal(str) => {
                 result.push_str(str);
             }
             ConfigValueParts::Expression(exp) => {
-                let provider = provider::get_provider(&exp.provider);
-                let value = provider.resolve(&exp.key);
-                match value {
-                    Ok(str) => {
+                let provider = provider::get_provider(&exp.provider)?;
+                let expr_value = provider.resolve(&exp.key);
+                match expr_value {
+                    Ok(value) => {
+                        let mut tmp_val = value.clone();
                         if let Some(selector) = &exp.selector {
-                            let selected_selector = selector::get_selector(selector.kind.as_str());
-                            let selection_result =
-                                &selected_selector.select(&str, &selector.query).unwrap_or_else(|err| {
-                                    panic!(
-                                        "Couldn't select value for {} with query {} : {}",
-                                        exp.key, selector.query, err
-                                    );
-                                });
-                            if selection_result.is_empty() {
-                                result.push_str(&exp.get_default_or_panic());
-                            } else {
-                                result.push_str(selection_result);
-                            }
+                            let selected_selector = selector::get_selector(selector.kind.as_str())?;
+                            tmp_val = selected_selector.select(&value, &selector.query)?;
+                        }
+                        if tmp_val.is_empty() {
+                            result.push_str(&exp.get_default()?);
                         } else {
-                            result.push_str(&str);
+                            result.push_str(&tmp_val);
                         }
                     }
                     Err(err) => {
-                        log::debug!("Couldn't resolve {} with error : {}", exp.key, err);
-                        result.push_str(&exp.get_default_or_panic());
+                        log::error!("Error when resolving {initial_value} : {err}");
+                        result.push_str(&exp.get_default()?);
                     }
                 }
             }
         }
     }
-    result
+    Ok(result)
 }

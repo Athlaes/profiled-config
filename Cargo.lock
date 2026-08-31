@@ -443,6 +443,7 @@ dependencies = [
  "serde_ini",
  "serde_json",
  "serde_json_path",
+ "thiserror",
  "toml",
  "yaml_serde",
 ]

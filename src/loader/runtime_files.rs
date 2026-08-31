@@ -1,33 +1,50 @@
 use std::{fs, path::Path};
 
-use log::{error, warn};
+use log::info;
 use serde_value::Value;
 
-use crate::loader::format::get_file_parser;
+use crate::loader::{LoaderError, format::get_file_parser};
 
-pub fn load(directory: &Path) -> Option<Value> {
-    let paths = fs::read_dir(directory)
-        .map_err(|err| warn!("Couldn't read current folder: {err}"))
-        .ok()?;
+pub fn load(directory: &Path) -> Result<Option<Value>, LoaderError> {
+    let paths = fs::read_dir(directory).map_err(|err| LoaderError::CurrentFolderNotReadable {
+        source_str: err.to_string(),
+    })?;
 
-    let Some(file) = paths
+    let overrrides_files = paths
         .filter_map(Result::ok)
-        .find(|entry| entry.file_name().to_str().is_some_and(|n| n.starts_with("overrides.")))
-    else {
-        warn!("No override file found");
-        return None;
+        .filter(|entry| {
+            entry.file_type().is_ok_and(|f| f.is_file())
+                && entry.file_name().to_str().is_some_and(|n| n.starts_with("overrides."))
+        })
+        .collect::<Vec<_>>();
+
+    let Some(file) = overrrides_files.first() else {
+        info!("No override file found");
+        return Ok(None);
     };
 
-    let path = file.path();
-    let ext = path.file_name()?.to_str().and_then(|f| f.rsplit(".").next())?;
-    let parser = get_file_parser(ext)
-        .map_err(|err| error!("Couldn't get parser for {} : {err}", path.display()))
-        .ok()?;
-    let content = fs::read_to_string(&path)
-        .map_err(|err| error!("Couldn't get file content for {} : {err}", path.display()))
-        .ok()?;
+    if overrrides_files.len() > 1 {
+        return Err(LoaderError::MultipleFileFound {
+            file_name: "overrides".to_string(),
+        });
+    }
 
-    parser(&content)
-        .map_err(|err| error!("Couldn't parse file {} : {err}", path.display()))
-        .ok()
+    let path = file.path();
+    let file_name = path
+        .file_name()
+        .and_then(|f| f.to_str())
+        .ok_or(LoaderError::FileNotFound {
+            file_name: "overrides".to_string(),
+        })?;
+    let ext = file_name
+        .rsplit(".")
+        .next()
+        .ok_or(LoaderError::NotSupportedExtension { ext: "".to_string() })?;
+    let parser = get_file_parser(ext)?;
+    let content = fs::read_to_string(&path).map_err(|err| LoaderError::FileNotReadable {
+        file_name: file_name.to_string(),
+        source_str: err.to_string(),
+    })?;
+
+    parser(&content).map(Some)
 }

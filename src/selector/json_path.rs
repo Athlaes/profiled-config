@@ -7,13 +7,22 @@ pub struct JsonPathSelector;
 
 impl Selector for JsonPathSelector {
     fn select(&self, json_str: &str, query: &str) -> Result<String, SelectorError> {
-        let json: Value = serde_json::from_str(json_str)
-            .map_err(|err| SelectorError::ParsingError(format!("Couldn't parse json value : {}", err)))?;
-        let path = JsonPath::parse(query)
-            .map_err(|err| SelectorError::ParsingError(format!("Couldn't parse jsonpath query : {}", err)))?;
-        let selected = path.query(&json).exactly_one().map_err(|err| {
-            SelectorError::SelectionError(format!("Error occured during json_path value selection : {}", err))
+        let json: Value = serde_json::from_str(json_str).map_err(|err| SelectorError::FormatError {
+            format: "json".to_string(),
+            source_str: err.to_string(),
         })?;
+        let path = JsonPath::parse(query).map_err(|err| SelectorError::QueryFormatError {
+            query: query.to_string(),
+            selector: "jsonpath".to_string(),
+            source_str: err.to_string(),
+        })?;
+        let selected = path
+            .query(&json)
+            .exactly_one()
+            .map_err(|err| SelectorError::QueryError {
+                query: query.to_string(),
+                source_str: err.to_string(),
+            })?;
 
         match selected {
             Value::String(str) => Ok(str.to_string()),

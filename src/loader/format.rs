@@ -1,10 +1,10 @@
 use serde_value::Value;
 
-use crate::ConfigError;
+use crate::loader::LoaderError;
 
-type Parser = fn(&str) -> Result<Value, ConfigError>;
+type Parser = fn(&str) -> Result<Value, LoaderError>;
 
-pub fn get_file_parser(extension: &str) -> Result<Parser, ConfigError> {
+pub fn get_file_parser(extension: &str) -> Result<Parser, LoaderError> {
     match extension {
         "json" => Ok(parse_json),
         #[cfg(feature = "toml")]
@@ -13,34 +13,35 @@ pub fn get_file_parser(extension: &str) -> Result<Parser, ConfigError> {
         "yaml" | "yml" => Ok(parse_yaml),
         #[cfg(feature = "ini")]
         "ini" => Ok(parse_ini),
-        _ => Err(ConfigError::NotSupportedExtension(format!(
-            "Extension {:?} not supported or feature is not enabled",
-            extension
-        ))),
+        _ => Err(LoaderError::NotSupportedExtension {
+            ext: extension.to_string(),
+        }),
     }
 }
 
-pub fn parse_json(content: &str) -> Result<Value, ConfigError> {
-    serde_json::from_str(content).map_err(|error| ConfigError::ParseError(format!("Couldn't parse file : {error}")))
+pub fn parse_json(content: &str) -> Result<Value, LoaderError> {
+    serde_json::from_str(content).map_err(|error| LoaderError::ParseError(format!("Couldn't parse file : {error}")))
 }
 
 #[cfg(feature = "toml")]
-pub fn parse_toml(content: &str) -> Result<Value, ConfigError> {
-    toml::from_str(content).map_err(|error| ConfigError::ParseError(format!("Couldn't parse file : {error}")))
+pub fn parse_toml(content: &str) -> Result<Value, LoaderError> {
+    toml::from_str(content).map_err(|error| LoaderError::ParseError(format!("Couldn't parse file : {error}")))
 }
 
 #[cfg(feature = "yaml")]
-pub fn parse_yaml(content: &str) -> Result<Value, ConfigError> {
-    yaml_serde::from_str(content).map_err(|error| ConfigError::ParseError(format!("Couldn't parse file : {error}")))
+pub fn parse_yaml(content: &str) -> Result<Value, LoaderError> {
+    yaml_serde::from_str(content).map_err(|error| LoaderError::ParseError(format!("Couldn't parse file : {error}")))
 }
 
 #[cfg(feature = "ini")]
-pub fn parse_ini(content: &str) -> Result<Value, ConfigError> {
-    serde_ini::from_str(content).map_err(|error| ConfigError::ParseError(format!("Couldn't parse file : {error}")))
+pub fn parse_ini(content: &str) -> Result<Value, LoaderError> {
+    serde_ini::from_str(content).map_err(|error| LoaderError::ParseError(format!("Couldn't parse file : {error}")))
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::loader::LoaderError;
+
     use super::*;
 
     fn nested_string<'a>(value: &'a Value, section: &str, key: &str) -> &'a str {
@@ -89,7 +90,7 @@ mod tests {
     fn rejects_unknown_extensions() {
         assert!(matches!(
             get_file_parser("xml"),
-            Err(ConfigError::NotSupportedExtension(_))
+            Err(LoaderError::NotSupportedExtension { ext: _ })
         ));
     }
 }
