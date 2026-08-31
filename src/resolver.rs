@@ -42,7 +42,7 @@ pub fn resolve(initial_value: &str) -> Result<String, ResolverError> {
                     }
                     Err(err) => {
                         log::error!("Error when resolving {initial_value} : {err}");
-                        return exp.get_default().map_err(ResolverError::from);
+                        result.push_str(&exp.get_default()?);
                     }
                 }
             }

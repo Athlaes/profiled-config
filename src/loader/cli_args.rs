@@ -38,9 +38,15 @@ fn update_map(root: &mut BTreeMap<Value, Value>, keys: &[&str], value: Value) {
         return;
     }
 
-    let child = root.entry(key).or_insert_with(|| Value::Map(BTreeMap::new()));
-    let Value::Map(child) = child else { return };
-    update_map(child, &keys[1..], value);
+    let child = root.entry(key).or_insert(Value::Map(BTreeMap::new()));
+    match child {
+        Value::Map(c) => update_map(c, &keys[1..], value),
+        _ => {
+            let mut value_map = BTreeMap::new();
+            update_map(&mut value_map, &keys[1..], value);
+            *child = Value::Map(value_map);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -121,6 +127,15 @@ mod tests {
     fn later_overrides_replace_earlier_values() {
         let result = load(&overrides(&["profile.name=default", "profile.name=development"]))
             .expect("valid duplicate override")
+            .unwrap();
+
+        assert_eq!(result, map([("profile", map([("name", string("development"))]))]));
+    }
+
+    #[test]
+    fn later_nested_override_replaces_an_earlier_parent_scalar() {
+        let result = load(&overrides(&["profile=default", "profile.name=development"]))
+            .expect("valid parent and nested overrides")
             .unwrap();
 
         assert_eq!(result, map([("profile", map([("name", string("development"))]))]));

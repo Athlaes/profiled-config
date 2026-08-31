@@ -94,4 +94,15 @@ mod tests {
 
         load_values(&directory, &["default".to_string()], &[]).unwrap();
     }
+
+    #[test]
+    fn ignores_malformed_cli_overrides() {
+        let entries = [DirEntry::File(File::new("default.json", b"{}"))];
+        let directory = Dir::new("", &entries);
+
+        let result = load_values(&directory, &[], &["invalid".to_string()])
+            .expect("a malformed CLI override should not stop configuration loading");
+
+        assert_eq!(result, vec![Value::Map(Default::default())]);
+    }
 }

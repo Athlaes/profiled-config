@@ -170,6 +170,16 @@ mod tests {
     }
 
     #[test]
+    fn missing_variable_fallback_preserves_surrounding_literals() {
+        let _environment = init_env();
+        let value = string("prefix-${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR:fallback}-suffix");
+
+        let result = process_any(&value).expect("a missing variable with a fallback should resolve");
+
+        assert_eq!(result, string("prefix-fallback-suffix"));
+    }
+
+    #[test]
     #[should_panic]
     fn panic_process_any_on_missing_env_var() {
         let _environment = init_env();
