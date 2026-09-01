@@ -213,10 +213,18 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn panic_process_any_on_missing_env_var() {
+    fn returns_the_path_and_provider_error_for_a_missing_env_var() {
         let _environment = init_env();
         let value = configuration("${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR}", None);
-        process(&value).unwrap();
+
+        let errors = process(&value).expect_err("a missing environment variable should be rejected");
+
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].path, "profile.name");
+        assert!(matches!(
+            &errors[0].cause,
+            ResolverError::Provide(crate::provider::ProviderError::VariableNotFound { key, .. })
+                if key == MISSING_ENV_VAR
+        ));
     }
 }

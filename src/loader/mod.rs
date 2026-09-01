@@ -72,7 +72,6 @@ mod tests {
     use include_dir::{Dir, DirEntry, File};
 
     #[test]
-    #[should_panic]
     fn rejects_duplicate_profile_files() {
         let entries = [
             DirEntry::File(File::new("default.toml", b"")),
@@ -80,7 +79,13 @@ mod tests {
         ];
         let directory = Dir::new("", &entries);
 
-        load_values(&directory, &["default".to_string()], &[]).unwrap();
+        let error = load_values(&directory, &["default".to_string()], &[])
+            .expect_err("duplicate profile files should be rejected");
+
+        assert_matches!(
+            error,
+            LoaderError::MultipleFileFound { file_name } if file_name == "default"
+        );
     }
 
     #[test]
