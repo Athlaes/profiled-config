@@ -43,7 +43,7 @@ pub fn load(directory: &Path) -> Result<Option<Value>, LoaderError> {
     let parser = get_file_parser(ext)?;
     let content = fs::read_to_string(&path).map_err(|err| LoaderError::FileNotReadable {
         file_name: file_name.to_string(),
-        source_str: err.to_string(),
+        cause_str: err.to_string(),
     })?;
 
     parser(&content).map(Some)

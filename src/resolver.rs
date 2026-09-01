@@ -41,7 +41,6 @@ pub fn resolve(initial_value: &str) -> Result<String, ResolverError> {
                         }
                     }
                     Err(err) => {
-                        log::error!("Error when resolving {initial_value} : {err}");
                         result.push_str(&exp.get_default()?);
                     }
                 }

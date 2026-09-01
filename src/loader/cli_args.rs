@@ -6,6 +6,7 @@ use crate::loader::LoaderError;
 
 pub fn load(overrides: &[String]) -> Result<Option<Value>, LoaderError> {
     let mut root: BTreeMap<Value, Value> = BTreeMap::new();
+
     if overrides.is_empty() {
         return Ok(None);
     }

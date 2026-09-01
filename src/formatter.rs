@@ -1,9 +1,9 @@
-use crate::resolver::ResolverError;
+use crate::processor::ResolveError;
 
-pub fn format_error(errors: Vec<ResolverError>) -> String {
+pub fn format_error(causes: &[ResolveError]) -> String {
     let mut formatted = String::new();
-    for error in errors {
-        formatted.push_str(format!("{}\n", error).as_str());
+    for error in causes {
+        formatted.push_str(format!("path: {} error: {}\n", error.path, error.cause).as_str());
     }
     formatted
 }

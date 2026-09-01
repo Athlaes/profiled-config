@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use include_dir::Dir;
-use log::{error, info};
+use log::info;
 use serde_value::Value;
 use thiserror::Error;
 
@@ -18,8 +18,8 @@ pub enum LoaderError {
     FileNotFound { file_name: String },
     #[error("File extension not found for file '{file_name}'")]
     FileExtensionNotFound { file_name: String },
-    #[error("Couldn't open file '{file_name}' : '{source_str}'")]
-    FileNotReadable { file_name: String, source_str: String },
+    #[error("Couldn't open file '{file_name}' : '{cause_str}'")]
+    FileNotReadable { file_name: String, cause_str: String },
     #[error("Multiple file '{file_name}' found")]
     MultipleFileFound { file_name: String },
     #[error("File '{file_name}' has no content or is not valid UTF-8")]
@@ -43,34 +43,21 @@ pub fn load_values(
 
     // Load profiled config
     for profile in profiles {
-        match embedded::load_profile(config_folder, profile) {
-            Ok(value) => {
-                files_values.push(value);
-            }
-            Err(e) => {
-                error!("Couldn't load config for {profile}: {e}");
-            }
-        }
+        files_values.push(embedded::load_profile(config_folder, profile)?);
     }
 
     // Load config overrides
-    match runtime_files::load(Path::new("./")) {
-        Ok(Some(value)) => files_values.push(value),
-        Ok(None) => {
-            info!("No runtime files overrides found");
-        }
-        Err(err) => {
-            error!("Erreur lors de la lecture du fichier overrides : {err}");
+    match runtime_files::load(Path::new("./"))? {
+        Some(value) => files_values.push(value),
+        None => {
+            info!("No runtime files overrides found in path './'");
         }
     }
 
-    match cli_args::load(overrides) {
-        Ok(Some(value)) => files_values.push(value),
-        Ok(None) => {
+    match cli_args::load(overrides)? {
+        Some(value) => files_values.push(value),
+        None => {
             info!("No CLI args overrides found");
-        }
-        Err(err) => {
-            error!("Erreur lors de la lecture du fichier overrides : {err}");
         }
     }
 
@@ -79,9 +66,10 @@ pub fn load_values(
 
 #[cfg(test)]
 mod tests {
-    use include_dir::{Dir, DirEntry, File};
-
     use super::*;
+    use std::assert_matches;
+
+    use include_dir::{Dir, DirEntry, File};
 
     #[test]
     #[should_panic]
@@ -100,9 +88,7 @@ mod tests {
         let entries = [DirEntry::File(File::new("default.json", b"{}"))];
         let directory = Dir::new("", &entries);
 
-        let result = load_values(&directory, &[], &["invalid".to_string()])
-            .expect("a malformed CLI override should not stop configuration loading");
-
-        assert_eq!(result, vec![Value::Map(Default::default())]);
+        let result = load_values(&directory, &[], &["invalid".to_string()]).unwrap_err();
+        assert_matches!(result, LoaderError::ParseError(_));
     }
 }

@@ -4,8 +4,8 @@ mod env;
 
 #[derive(Debug, Error)]
 pub enum ProviderError {
-    #[error("Variable {key} couldn't be resolved : {source_str}")]
-    VariableNotFound { key: String, source_str: String },
+    #[error("Variable {key} couldn't be resolved : {cause_str}")]
+    VariableNotFound { key: String, cause_str: String },
     #[error("Provider '{key}' not supported or feature is not enabled")]
     ProviderNotFound { key: String },
 }

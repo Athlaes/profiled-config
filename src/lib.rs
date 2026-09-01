@@ -7,6 +7,10 @@ pub use include_dir;
 pub use profiled_config_macros::profiled_config;
 
 use serde_core::de::DeserializeOwned;
+use serde_value::DeserializerError;
+use thiserror::Error;
+
+use crate::{loader::LoaderError, processor::ResolveError};
 
 mod formatter;
 mod loader;
@@ -26,8 +30,32 @@ struct ConfigArgs {
     overrides: Vec<String>,
 }
 
+#[derive(Debug, Error)]
+pub enum ConfigError {
+    #[error("Failed to load configuration : {0}")]
+    Loading(#[from] LoaderError),
+    #[error("Failed to resolve configuration :\n\n{}", formatter::format_error(causes))]
+    Resolve { causes: Vec<ResolveError> },
+    #[error("Failed to deserialize configuration : {cause}")]
+    Deserialize {
+        #[source]
+        cause: DeserializerError,
+    },
+}
+
 #[macro_export]
 macro_rules! load_config {
+    () => {{
+        use $crate::include_dir;
+
+        static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
+
+        $crate::load_config_from_dir(&CONFIG_FOLDER).unwrap_or_else(|err| panic!("{err}"))
+    }};
+}
+
+#[macro_export]
+macro_rules! try_load_config {
     () => {{
         use $crate::include_dir;
 
@@ -38,7 +66,7 @@ macro_rules! load_config {
 }
 
 #[doc(hidden)]
-pub fn load_config_from_dir<T>(config_folder: &Dir<'_>) -> T
+pub fn load_config_from_dir<T>(config_folder: &Dir<'_>) -> Result<T, ConfigError>
 where
     T: DeserializeOwned,
 {
@@ -47,12 +75,11 @@ where
     let files_content = loader::load_values(config_folder, &profiles, &overrides)
         .unwrap_or_else(|err| panic!("Erreur lors du chargement dans la configuration : {err}"));
     let merged_content = merger::merge_values(&files_content);
-    let processed_content = processor::process_any(&merged_content).unwrap_or_else(|errors| {
+    let processed_content = processor::process(&merged_content).unwrap_or_else(|errors| {
         panic!(
-            "Erreur lors du traitement de la configuration :\n\n{}",
-            formatter::format_error(errors)
+            "Failed to resolve configuration :\n\n{}",
+            formatter::format_error(&errors)
         )
     });
-    T::deserialize(processed_content)
-        .unwrap_or_else(|err| panic!("Erreur lors de la désérialisation de la configuration : {err}"))
+    T::deserialize(processed_content).map_err(|err| ConfigError::Deserialize { cause: err })
 }
