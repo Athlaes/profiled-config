@@ -1,14 +1,13 @@
 use clap::Parser;
 use include_dir::Dir;
+use serde_core::de::DeserializeOwned;
+use serde_value::DeserializerError;
+use thiserror::Error;
 
 #[doc(hidden)]
 pub use include_dir;
 #[cfg(feature = "macros")]
 pub use profiled_config_macros::profiled_config;
-
-use serde_core::de::DeserializeOwned;
-use serde_value::DeserializerError;
-use thiserror::Error;
 
 use crate::{loader::LoaderError, processor::ResolveError};
 
@@ -70,16 +69,11 @@ pub fn load_config_from_dir<T>(config_folder: &Dir<'_>) -> Result<T, ConfigError
 where
     T: DeserializeOwned,
 {
-    let profiles = ConfigArgs::parse().profiles;
-    let overrides = ConfigArgs::parse().overrides;
-    let files_content = loader::load_values(config_folder, &profiles, &overrides)
-        .unwrap_or_else(|err| panic!("Erreur lors du chargement dans la configuration : {err}"));
+    let args = ConfigArgs::parse();
+    let profiles = args.profiles;
+    let overrides = args.overrides;
+    let files_content = loader::load_values(config_folder, &profiles, &overrides)?;
     let merged_content = merger::merge_values(&files_content);
-    let processed_content = processor::process(&merged_content).unwrap_or_else(|errors| {
-        panic!(
-            "Failed to resolve configuration :\n\n{}",
-            formatter::format_error(&errors)
-        )
-    });
+    let processed_content = processor::process(&merged_content).map_err(|err| ConfigError::Resolve { causes: err })?;
     T::deserialize(processed_content).map_err(|err| ConfigError::Deserialize { cause: err })
 }

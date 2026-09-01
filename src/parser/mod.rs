@@ -6,12 +6,6 @@ use crate::parser::ast::{ConfigExpression, ConfigValue, ConfigValueParts, Select
 
 #[derive(Debug, Error)]
 pub enum ExpressionParserError {
-    #[error("Unexpected empty value with no default for provider '{provider}', key '{key}', and selector '{selector}'")]
-    MissingDefaultValue {
-        provider: String,
-        key: String,
-        selector: String,
-    },
     #[error("Expression parser encountered an unexpected token: '{token}'")]
     UnexpectedToken { token: String },
     #[error("{0}")]
