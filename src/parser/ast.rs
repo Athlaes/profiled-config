@@ -1,7 +1,5 @@
 use std::fmt::Display;
 
-use crate::parser::ExpressionParserError;
-
 #[derive(Debug, PartialEq)]
 pub struct ConfigValue {
     pub parts: Vec<ConfigValueParts>,
@@ -19,16 +17,6 @@ pub struct ConfigExpression {
     pub key: String,
     pub selector: Option<SelectorExpression>,
     pub default: Option<String>,
-}
-
-impl ConfigExpression {
-    pub fn get_default(&self) -> Result<String, ExpressionParserError> {
-        self.default.clone().ok_or(ExpressionParserError::MissingDefaultValue {
-            provider: self.provider.clone(),
-            key: self.key.clone(),
-            selector: self.selector.clone().map(|s| s.kind).unwrap_or_default(),
-        })
-    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

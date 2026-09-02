@@ -1,23 +1,42 @@
 use std::collections::BTreeMap;
 
 use serde_value::Value;
+use thiserror::Error;
 
 use crate::resolver::{self, ResolverError};
 
-pub fn process_any(value: &Value) -> Result<Value, Vec<ResolverError>> {
+#[derive(Debug, Error)]
+#[error("Couldn't resolve variable '{path}' : {cause}")]
+pub struct ResolveError {
+    pub path: String,
+    #[source]
+    pub cause: ResolverError,
+}
+
+pub fn process(value: &Value) -> Result<Value, Vec<ResolveError>> {
+    let path = vec![];
+    process_any(value, &path)
+}
+
+fn process_any(value: &Value, path: &[String]) -> Result<Value, Vec<ResolveError>> {
     match value {
-        Value::String(val) => Ok(Value::String(process_string(val).map_err(|err| vec![err])?)),
-        Value::Seq(arr) => Ok(Value::Seq(process_array(arr)?)),
-        Value::Map(tab) => Ok(Value::Map(process_table(tab)?)),
+        Value::String(val) => Ok(Value::String(process_string(val, path).map_err(|err| vec![err])?)),
+        Value::Seq(arr) => Ok(Value::Seq(process_array(arr, path)?)),
+        Value::Map(tab) => Ok(Value::Map(process_table(tab, path)?)),
         _ => Ok(value.clone()),
     }
 }
 
-fn process_table(table: &BTreeMap<Value, Value>) -> Result<BTreeMap<Value, Value>, Vec<ResolverError>> {
+fn process_table(table: &BTreeMap<Value, Value>, path: &[String]) -> Result<BTreeMap<Value, Value>, Vec<ResolveError>> {
     let mut processed_table = table.clone();
     let mut errors = Vec::new();
     for (key, value) in table.iter() {
-        match process_any(value) {
+        let mut child_path = path.to_vec();
+        if let Value::String(p) = key {
+            child_path.push(p.to_owned());
+        }
+
+        match process_any(value, &child_path) {
             Ok(processed_value) => {
                 processed_table.insert(key.clone(), processed_value);
             }
@@ -32,11 +51,13 @@ fn process_table(table: &BTreeMap<Value, Value>) -> Result<BTreeMap<Value, Value
     Ok(processed_table)
 }
 
-fn process_array(arr: &[Value]) -> Result<Vec<Value>, Vec<ResolverError>> {
+fn process_array(arr: &[Value], path: &[String]) -> Result<Vec<Value>, Vec<ResolveError>> {
     let mut processed_array = Vec::new();
     let mut errors = Vec::new();
-    for value in arr {
-        match process_any(value) {
+    for (index, value) in arr.iter().enumerate() {
+        let mut child_path = path.to_vec();
+        child_path.push(format!("[{index}]"));
+        match process_any(value, &child_path) {
             Ok(processed_value) => {
                 processed_array.push(processed_value);
             }
@@ -51,8 +72,11 @@ fn process_array(arr: &[Value]) -> Result<Vec<Value>, Vec<ResolverError>> {
     Ok(processed_array)
 }
 
-fn process_string(val: &str) -> Result<String, ResolverError> {
-    resolver::resolve(val)
+fn process_string(val: &str, path: &[String]) -> Result<String, ResolveError> {
+    resolver::resolve(val).map_err(|err| ResolveError {
+        path: path.join("."),
+        cause: err,
+    })
 }
 
 #[cfg(test)]
@@ -130,7 +154,7 @@ mod tests {
     fn success_process_any() {
         let _environment = init_env();
         let value = configuration("default", None);
-        let result = process_any(&value).unwrap();
+        let result = process(&value).unwrap();
         assert_eq!(
             nested_string(&result, &["clients", "aia", "url"]),
             "http://localhost:8080"
@@ -146,7 +170,7 @@ mod tests {
                 "jdbc:postgresql://${env:JSON_DATABASE_URL(jsonpath:$.database.credentials.username)}:${env:JSON_DATABASE_URL(jsonpath:$.database.credentials.password)}@${env:JSON_DATABASE_URL(jsonpath:$.database.host)}/${env:JSON_DATABASE_URL(jsonpath:$.database.db_name)}",
             ),
         );
-        let result = process_any(&value).unwrap();
+        let result = process(&value).unwrap();
         assert_eq!(nested_string(&result, &["profile", "name"]), "default");
         assert_eq!(
             nested_string(&result, &["database", "url"]),
@@ -161,7 +185,7 @@ mod tests {
             "${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR:test}",
             Some("${env:PROFILED_CONFIG_TEST_DATABASE_URL:postgres://localhost:5432}"),
         );
-        let result = process_any(&value).unwrap();
+        let result = process(&value).unwrap();
         assert_eq!(nested_string(&result, &["profile", "name"]), "test");
         assert_eq!(
             nested_string(&result, &["database", "url"]),
@@ -174,7 +198,7 @@ mod tests {
         let _environment = init_env();
         let value = string("prefix-${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR:fallback}-suffix");
 
-        let result = process_any(&value).expect("a missing variable with a fallback should resolve");
+        let result = process(&value).expect("a missing variable with a fallback should resolve");
 
         assert_eq!(result, string("prefix-fallback-suffix"));
     }
@@ -183,16 +207,24 @@ mod tests {
     fn preserves_a_trailing_dollar_in_a_literal() {
         let value = string("price$");
 
-        let result = process_any(&value).expect("a literal ending with '$' should be processed");
+        let result = process(&value).expect("a literal ending with '$' should be processed");
 
         assert_eq!(result, string("price$"));
     }
 
     #[test]
-    #[should_panic]
-    fn panic_process_any_on_missing_env_var() {
+    fn returns_the_path_and_provider_error_for_a_missing_env_var() {
         let _environment = init_env();
         let value = configuration("${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR}", None);
-        process_any(&value).unwrap();
+
+        let errors = process(&value).expect_err("a missing environment variable should be rejected");
+
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].path, "profile.name");
+        assert!(matches!(
+            &errors[0].cause,
+            ResolverError::Provide(crate::provider::ProviderError::VariableNotFound { key, .. })
+                if key == MISSING_ENV_VAR
+        ));
     }
 }

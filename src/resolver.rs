@@ -14,6 +14,8 @@ pub enum ResolverError {
     ExpressionParse(#[from] ExpressionParserError),
     #[error("Provide error: {0}")]
     Provide(#[from] ProviderError),
+    #[error("Unexpected empty value with no default for provider '{provider}', key '{key}'")]
+    MissingDefaultValue { provider: String, key: String },
 }
 
 pub fn resolve(initial_value: &str) -> Result<String, ResolverError> {
@@ -35,14 +37,16 @@ pub fn resolve(initial_value: &str) -> Result<String, ResolverError> {
                             tmp_val = selected_selector.select(&value, &selector.query)?;
                         }
                         if tmp_val.is_empty() {
-                            result.push_str(&exp.get_default()?);
+                            result.push_str(&exp.default.clone().ok_or(ResolverError::MissingDefaultValue {
+                                provider: exp.provider.clone(),
+                                key: exp.key.clone(),
+                            })?);
                         } else {
                             result.push_str(&tmp_val);
                         }
                     }
                     Err(err) => {
-                        log::error!("Error when resolving {initial_value} : {err}");
-                        result.push_str(&exp.get_default()?);
+                        result.push_str(&exp.default.clone().ok_or(err)?);
                     }
                 }
             }
