@@ -3,7 +3,7 @@ use std::ffi::OsStr;
 use include_dir::{Dir, File};
 use serde_value::Value;
 
-use crate::{format::get_file_parser, source::LoaderError};
+use crate::{error::LoaderError, format::get_file_parser};
 
 pub fn load_profile(config_folder: &Dir<'_>, profile: &str) -> Result<Value, LoaderError> {
     let mut files = config_folder

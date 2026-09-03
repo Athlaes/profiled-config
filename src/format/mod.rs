@@ -1,6 +1,6 @@
 use serde_value::Value;
 
-use crate::source::LoaderError;
+use crate::error::LoaderError;
 
 #[cfg(feature = "ini")]
 mod ini;
@@ -37,7 +37,7 @@ pub fn get_file_parser(extension: &str) -> Result<Parser, LoaderError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::source::LoaderError;
+    use crate::error::LoaderError;
 
     use super::*;
 

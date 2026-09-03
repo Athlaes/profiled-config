@@ -3,31 +3,12 @@ use std::path::Path;
 use include_dir::Dir;
 use log::info;
 use serde_value::Value;
-use thiserror::Error;
+
+use crate::error::LoaderError;
 
 mod embedded;
 mod inline_override;
 mod runtime_file;
-
-#[derive(Debug, Error)]
-pub enum LoaderError {
-    #[error("Couldn't open current folder : '{source_str}'")]
-    CurrentFolderNotReadable { source_str: String },
-    #[error("File '{file_name}' not found")]
-    FileNotFound { file_name: String },
-    #[error("File extension not found for file '{file_name}'")]
-    FileExtensionNotFound { file_name: String },
-    #[error("Couldn't open file '{file_name}' : '{cause_str}'")]
-    FileNotReadable { file_name: String, cause_str: String },
-    #[error("Multiple file '{file_name}' found")]
-    MultipleFileFound { file_name: String },
-    #[error("File '{file_name}' has no content or is not valid UTF-8")]
-    NoContent { file_name: String },
-    #[error("{0}")]
-    ParseError(String),
-    #[error("Found file with ext '{ext}' which is not supported or feature is not enabled")]
-    NotSupportedExtension { ext: String },
-}
 
 pub fn load_values(
     config_folder: &Dir<'_>,

@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use serde_value::Value;
 
-use crate::source::LoaderError;
+use crate::error::LoaderError;
 
 pub fn load(overrides: &[String]) -> Result<Option<Value>, LoaderError> {
     let mut root: BTreeMap<Value, Value> = BTreeMap::new();
@@ -52,7 +52,7 @@ fn update_map(root: &mut BTreeMap<Value, Value>, keys: &[&str], value: Value) {
 
 #[cfg(test)]
 mod tests {
-    use crate::source::LoaderError;
+    use crate::error::LoaderError;
 
     use super::*;
 
