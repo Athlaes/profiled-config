@@ -1,8 +1,36 @@
-pub mod ast;
-
+use std::fmt::Display;
 use thiserror::Error;
 
-use crate::parser::ast::{ConfigExpression, ConfigValue, ConfigValueParts, SelectorExpression};
+#[derive(Debug, PartialEq)]
+pub struct ConfigValue {
+    pub parts: Vec<ConfigValueParts>,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ConfigValueParts {
+    Literal(String),
+    Expression(ConfigExpression),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ConfigExpression {
+    pub provider: String,
+    pub key: String,
+    pub selector: Option<SelectorExpression>,
+    pub default: Option<String>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct SelectorExpression {
+    pub kind: String,
+    pub query: String,
+}
+
+impl Display for SelectorExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SelectorExpression ({}: {})", self.kind, self.query)
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum ExpressionParserError {
@@ -151,8 +179,6 @@ impl<'a> ConfigValueParser<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::ast::ConfigValue;
-
     use super::*;
 
     use rstest::rstest;

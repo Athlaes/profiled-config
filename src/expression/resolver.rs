@@ -1,7 +1,7 @@
 use thiserror::Error;
 
-use crate::{
-    parser::{ConfigValueParser, ExpressionParserError, ast::ConfigValueParts},
+use super::{
+    parser::{ConfigValueParser, ConfigValueParts, ExpressionParserError},
     provider::{self, Provider, ProviderError},
     selector::{self, Selector, SelectorError},
 };

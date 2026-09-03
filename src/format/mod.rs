@@ -1,6 +1,22 @@
 use serde_value::Value;
 
-use crate::loader::LoaderError;
+use crate::source::LoaderError;
+
+#[cfg(feature = "ini")]
+mod ini;
+mod json;
+#[cfg(feature = "toml")]
+mod toml;
+#[cfg(feature = "yaml")]
+mod yaml;
+
+#[cfg(feature = "ini")]
+use ini::parse as parse_ini;
+use json::parse as parse_json;
+#[cfg(feature = "toml")]
+use toml::parse as parse_toml;
+#[cfg(feature = "yaml")]
+use yaml::parse as parse_yaml;
 
 type Parser = fn(&str) -> Result<Value, LoaderError>;
 
@@ -19,28 +35,9 @@ pub fn get_file_parser(extension: &str) -> Result<Parser, LoaderError> {
     }
 }
 
-pub fn parse_json(content: &str) -> Result<Value, LoaderError> {
-    serde_json::from_str(content).map_err(|error| LoaderError::ParseError(format!("Couldn't parse file : {error}")))
-}
-
-#[cfg(feature = "toml")]
-pub fn parse_toml(content: &str) -> Result<Value, LoaderError> {
-    toml::from_str(content).map_err(|error| LoaderError::ParseError(format!("Couldn't parse file : {error}")))
-}
-
-#[cfg(feature = "yaml")]
-pub fn parse_yaml(content: &str) -> Result<Value, LoaderError> {
-    yaml_serde::from_str(content).map_err(|error| LoaderError::ParseError(format!("Couldn't parse file : {error}")))
-}
-
-#[cfg(feature = "ini")]
-pub fn parse_ini(content: &str) -> Result<Value, LoaderError> {
-    serde_ini::from_str(content).map_err(|error| LoaderError::ParseError(format!("Couldn't parse file : {error}")))
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::loader::LoaderError;
+    use crate::source::LoaderError;
 
     use super::*;
 

@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::selector::json_path::JsonPathSelector;
+use self::json_path::JsonPathSelector;
 
 pub mod json_path;
 

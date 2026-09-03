@@ -5,10 +5,9 @@ use log::info;
 use serde_value::Value;
 use thiserror::Error;
 
-mod cli_args;
 mod embedded;
-mod format;
-mod runtime_files;
+mod inline_override;
+mod runtime_file;
 
 #[derive(Debug, Error)]
 pub enum LoaderError {
@@ -47,14 +46,14 @@ pub fn load_values(
     }
 
     // Load config overrides
-    match runtime_files::load(Path::new("./"))? {
+    match runtime_file::load(Path::new("./"))? {
         Some(value) => files_values.push(value),
         None => {
             info!("No runtime files overrides found in path './'");
         }
     }
 
-    match cli_args::load(overrides)? {
+    match inline_override::load(overrides)? {
         Some(value) => files_values.push(value),
         None => {
             info!("No CLI args overrides found");

@@ -3,7 +3,7 @@ use std::{fs, path::Path};
 use log::info;
 use serde_value::Value;
 
-use crate::loader::{LoaderError, format::get_file_parser};
+use crate::{format::get_file_parser, source::LoaderError};
 
 pub fn load(directory: &Path) -> Result<Option<Value>, LoaderError> {
     let paths = fs::read_dir(directory).map_err(|err| LoaderError::CurrentFolderNotReadable {

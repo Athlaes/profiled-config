@@ -1,7 +1,7 @@
 use serde_json::Value;
 use serde_json_path::JsonPath;
 
-use crate::selector::{Selector, SelectorError};
+use super::{Selector, SelectorError};
 
 pub struct JsonPathSelector;
 

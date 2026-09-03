@@ -1,6 +1,6 @@
 use std::env;
 
-use crate::provider::{Provider, ProviderError};
+use super::{Provider, ProviderError};
 
 pub struct EnvProvider;
 
