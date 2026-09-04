@@ -1,3 +1,5 @@
+//! Merge configuration layers according to their precedence.
+
 use std::collections::BTreeMap;
 
 use serde_value::Value;

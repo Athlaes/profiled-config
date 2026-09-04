@@ -3,7 +3,12 @@ use std::collections::BTreeMap;
 use serde_value::Value;
 use thiserror::Error;
 
-use crate::resolver::{self, ResolverError};
+use self::resolver::ResolverError;
+
+mod parser;
+mod provider;
+mod resolver;
+mod selector;
 
 #[derive(Debug, Error)]
 #[error("Couldn't resolve variable '{path}' : {cause}")]
@@ -223,7 +228,7 @@ mod tests {
         assert_eq!(errors[0].path, "profile.name");
         assert!(matches!(
             &errors[0].cause,
-            ResolverError::Provide(crate::provider::ProviderError::VariableNotFound { key, .. })
+            ResolverError::Provide(crate::expression::provider::ProviderError::VariableNotFound { key, .. })
                 if key == MISSING_ENV_VAR
         ));
     }

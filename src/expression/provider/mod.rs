@@ -16,7 +16,7 @@ pub trait Provider {
 
 pub fn get_provider(key: &str) -> Result<impl Provider, ProviderError> {
     match key {
-        "env" => Ok(env::EnvProvider),
+        "env" => Ok(self::env::EnvProvider),
         _ => Err(ProviderError::ProviderNotFound { key: key.to_string() }),
     }
 }

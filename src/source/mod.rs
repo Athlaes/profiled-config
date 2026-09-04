@@ -3,32 +3,12 @@ use std::path::Path;
 use include_dir::Dir;
 use log::info;
 use serde_value::Value;
-use thiserror::Error;
 
-mod cli_args;
+use crate::error::LoaderError;
+
 mod embedded;
-mod format;
-mod runtime_files;
-
-#[derive(Debug, Error)]
-pub enum LoaderError {
-    #[error("Couldn't open current folder : '{source_str}'")]
-    CurrentFolderNotReadable { source_str: String },
-    #[error("File '{file_name}' not found")]
-    FileNotFound { file_name: String },
-    #[error("File extension not found for file '{file_name}'")]
-    FileExtensionNotFound { file_name: String },
-    #[error("Couldn't open file '{file_name}' : '{cause_str}'")]
-    FileNotReadable { file_name: String, cause_str: String },
-    #[error("Multiple file '{file_name}' found")]
-    MultipleFileFound { file_name: String },
-    #[error("File '{file_name}' has no content or is not valid UTF-8")]
-    NoContent { file_name: String },
-    #[error("{0}")]
-    ParseError(String),
-    #[error("Found file with ext '{ext}' which is not supported or feature is not enabled")]
-    NotSupportedExtension { ext: String },
-}
+mod inline_override;
+mod runtime_file;
 
 pub fn load_values(
     config_folder: &Dir<'_>,
@@ -47,14 +27,14 @@ pub fn load_values(
     }
 
     // Load config overrides
-    match runtime_files::load(Path::new("./"))? {
+    match runtime_file::load(Path::new("./"))? {
         Some(value) => files_values.push(value),
         None => {
             info!("No runtime files overrides found in path './'");
         }
     }
 
-    match cli_args::load(overrides)? {
+    match inline_override::load(overrides)? {
         Some(value) => files_values.push(value),
         None => {
             info!("No CLI args overrides found");

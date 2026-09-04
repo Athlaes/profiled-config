@@ -9,7 +9,7 @@
 ## Next: stabilize loading
 
 - [x] Return structured errors throughout the loading pipeline instead of logging or ignoring failures & expose a public, fallible loading API.
-- [ ] Clean up the internal loader, parser, resolver, and provider module boundaries.
+- [x] Clean up the internal loader, parser, resolver, and provider module boundaries.
 - [ ] Support applications that own their Clap command-line parser.
 
 ## Then: prepare remote providers
