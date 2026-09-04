@@ -22,8 +22,8 @@ categories = ["config"]
 publish = ["crates-io"]
 
 [features]
-default = ["toml", "macros", "auto-cli"]
-macros = ["dep:profiled_config_macros"]
+default = ["toml", "macros"]
+macros = ["dep:profiled_config_macros", "auto-cli"]
 
 auto-cli = []
 ini = ["dep:serde_ini"]

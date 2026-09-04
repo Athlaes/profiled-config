@@ -13,13 +13,7 @@ where
     use crate::cli::ProfiledConfigParser;
 
     let args = ProfiledConfigParser::parse();
-    load_config_from_dir_with(
-        config_folder,
-        &LoadOptions {
-            profiles: args.profiled_config.profiles,
-            overrides: args.profiled_config.overrides,
-        },
-    )
+    load_config_from_dir_with(config_folder, &args.profiled_config.into())
 }
 
 pub fn load_config_from_dir_with<T>(config_folder: &Dir<'_>, options: &LoadOptions) -> Result<T, ConfigError>

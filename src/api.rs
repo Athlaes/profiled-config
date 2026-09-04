@@ -30,6 +30,14 @@ macro_rules! load_config {
 
         $crate::load_config_from_dir(&CONFIG_FOLDER).unwrap_or_else(|err| panic!("{err}"))
     }};
+
+    ($options:expr) => {{
+        use $crate::include_dir;
+
+        static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
+
+        $crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options).unwrap_or_else(|err| panic!("{err}"))
+    }};
 }
 
 #[macro_export]
@@ -54,6 +62,14 @@ macro_rules! try_load_config {
 
         $crate::load_config_from_dir(&CONFIG_FOLDER)
     }};
+
+    ($options:expr) => {{
+        use $crate::include_dir;
+
+        static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
+
+        $crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options)
+    }};
 }
 
 #[macro_export]
@@ -64,6 +80,6 @@ macro_rules! try_load_config {
 
         static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
 
-        $crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options).unwrap_or_else(|err| panic!("{err}"))
+        $crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options)
     }};
 }
