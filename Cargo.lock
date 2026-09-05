@@ -461,6 +461,7 @@ dependencies = [
 name = "profiled_config_test"
 version = "0.4.0-SNAPSHOT"
 dependencies = [
+ "clap",
  "env_logger",
  "log",
  "profiled_config",
