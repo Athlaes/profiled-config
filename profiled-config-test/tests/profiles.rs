@@ -15,6 +15,23 @@ fn run_profiled_config(args: &[&str]) {
     );
 }
 
+fn run_custom_cli(args: &[&str]) -> String {
+    let output = Command::new(env!("CARGO_BIN_EXE_custom_cli"))
+        .args(args)
+        .output()
+        .expect("failed to execute custom_cli");
+
+    assert!(
+        output.status.success(),
+        "custom_cli failed with status {}\nstdout:\n{}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    String::from_utf8(output.stdout).expect("custom_cli stdout should be valid UTF-8")
+}
+
 #[test]
 fn loads_default_configuration_without_profile() {
     run_profiled_config(&[]);
@@ -35,4 +52,18 @@ fn loads_multiple_overrides_cli_args() {
         "--overrides",
         "test.value=overrided_value",
     ]);
+}
+
+#[test]
+fn integrates_with_an_application_cli() {
+    let stdout = run_custom_cli(&[
+        "--application-name",
+        "integration-test",
+        "--profiles",
+        "dev",
+        "--overrides",
+        "test.value=from-custom-cli",
+    ]);
+
+    assert_eq!(stdout.trim(), "integration-test|dev|1.0.0-SNAPSHOT|from-custom-cli");
 }
