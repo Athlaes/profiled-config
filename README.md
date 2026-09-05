@@ -11,7 +11,7 @@ profiles and overrides are selected at startup.
 ## Quick start
 
 ```shell
-cargo add profiled_config --features macros
+cargo add profiled_config
 cargo add serde --features derive
 ```
 
@@ -108,13 +108,15 @@ A missing value without a fallback stops loading.
 JSON is always available. TOML is enabled by default.
 
 ```shell
-cargo add profiled_config --features macros,yaml,ini
+cargo add profiled_config --features yaml,ini
 ```
 
 Profiles may mix `.json`, `.toml`, `.yaml`, `.yml`, and `.ini` files. INI
 supports string keys and values only.
 
 ## Without the attribute macro
+
+The default `auto-cli` mode still reads `--profiles` and `--overrides`:
 
 ```rust
 fn main() {
@@ -131,6 +133,47 @@ async fn main(config: Config) {
     // ...
 }
 ```
+
+## Existing Clap application
+
+Disable the default attribute macro and `auto-cli`; keep the format you use:
+
+```shell
+cargo add profiled_config --no-default-features --features toml
+cargo add clap --features derive
+cargo add serde --features derive
+```
+
+Flatten the configuration arguments into your parser, then load explicitly:
+
+```rust
+use clap::Parser;
+use profiled_config::{LoadOptions, ProfiledConfigArgs};
+
+#[derive(Parser)]
+struct Cli {
+    #[arg(long)]
+    verbose: bool,
+
+    #[command(flatten)]
+    config: ProfiledConfigArgs,
+}
+
+fn main() -> Result<(), profiled_config::ConfigError> {
+    let cli = Cli::parse();
+    let options: LoadOptions = cli.config.into();
+    let config: Config = profiled_config::try_load_config!(options)?;
+
+    if cli.verbose {
+        println!("{}:{}", config.name, config.port);
+    }
+
+    Ok(())
+}
+```
+
+`macros` enables the `#[profiled_config]` attribute; `load_config!` and
+`try_load_config!` remain available without it.
 
 ## License
 
