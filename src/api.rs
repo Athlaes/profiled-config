@@ -28,15 +28,28 @@ macro_rules! load_config {
 
         static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
 
-        $crate::load_config_from_dir(&CONFIG_FOLDER).unwrap_or_else(|err| panic!("{err}"))
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap_or_else(|err| panic!("{err}"));
+        runtime
+            .block_on($crate::load_config_from_dir(&CONFIG_FOLDER))
+            .unwrap_or_else(|err| panic!("{err}"))
     }};
 
     ($options:expr) => {{
         use $crate::include_dir;
+        use $crate::tokio;
 
         static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
 
-        $crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options).unwrap_or_else(|err| panic!("{err}"))
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap_or_else(|err| panic!("{err}"));
+        runtime
+            .block_on($crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options))
+            .unwrap_or_else(|err| panic!("{err}"))
     }};
 }
 
@@ -45,10 +58,55 @@ macro_rules! load_config {
 macro_rules! load_config {
     ($options:expr) => {{
         use $crate::include_dir;
+        use $crate::tokio;
 
         static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
 
-        $crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options).unwrap_or_else(|err| panic!("{err}"))
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap_or_else(|err| panic!("{err}"));
+        runtime
+            .block_on($crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options))
+            .unwrap_or_else(|err| panic!("{err}"))
+    }};
+}
+
+#[macro_export]
+#[cfg(feature = "auto-cli")]
+macro_rules! load_config_async {
+    () => {{
+        use $crate::include_dir;
+
+        static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
+
+        $crate::load_config_from_dir(&CONFIG_FOLDER)
+            .await
+            .unwrap_or_else(|err| panic!("{err}"))
+    }};
+
+    ($options:expr) => {{
+        use $crate::include_dir;
+
+        static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
+
+        $crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options)
+            .await
+            .unwrap_or_else(|err| panic!("{err}"))
+    }};
+}
+
+#[macro_export]
+#[cfg(not(feature = "auto-cli"))]
+macro_rules! load_config_async {
+    ($options:expr) => {{
+        use $crate::include_dir;
+
+        static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
+
+        $crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options)
+            .await
+            .unwrap_or_else(|err| panic!("{err}"))
     }};
 }
 
@@ -59,8 +117,11 @@ macro_rules! try_load_config {
         use $crate::include_dir;
 
         static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
-
-        $crate::load_config_from_dir(&CONFIG_FOLDER)
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err($crate::ConfigError::Runtime)
+            .and_then(|runtime| runtime.block_on($crate::load_config_from_dir(&CONFIG_FOLDER, &$options)))
     }};
 
     ($options:expr) => {{
@@ -68,7 +129,11 @@ macro_rules! try_load_config {
 
         static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
 
-        $crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options)
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err($crate::ConfigError::Runtime)
+            .and_then(|runtime| runtime.block_on($crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options)))
     }};
 }
 
@@ -80,6 +145,44 @@ macro_rules! try_load_config {
 
         static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
 
-        $crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options)
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err($crate::ConfigError::Runtime)
+            .and_then(|runtime| runtime.block_on($crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options)))
+    }};
+}
+
+#[cfg(feature = "auto-cli")]
+#[macro_export]
+macro_rules! try_load_config_async {
+    () => {{
+        use $crate::include_dir;
+
+        static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
+
+        $crate::load_config_from_dir(&CONFIG_FOLDER).await
+    }};
+
+    ($options:expr) => {{
+        use $crate::include_dir;
+        use $crate::tokio;
+
+        static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
+
+        $crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options).await
+    }};
+}
+
+#[cfg(not(feature = "auto-cli"))]
+#[macro_export]
+macro_rules! try_load_config_async {
+    ($options:expr) => {{
+        use $crate::include_dir;
+        use $crate::tokio;
+
+        static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
+
+        $crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options).await
     }};
 }

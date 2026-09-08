@@ -18,21 +18,24 @@ pub struct ResolveError {
     pub cause: ResolverError,
 }
 
-pub fn process(value: &Value) -> Result<Value, Vec<ResolveError>> {
+pub async fn process(value: &Value) -> Result<Value, Vec<ResolveError>> {
     let path = vec![];
-    process_any(value, &path)
+    process_any(value, &path).await
 }
 
-fn process_any(value: &Value, path: &[String]) -> Result<Value, Vec<ResolveError>> {
+async fn process_any(value: &Value, path: &[String]) -> Result<Value, Vec<ResolveError>> {
     match value {
-        Value::String(val) => Ok(Value::String(process_string(val, path).map_err(|err| vec![err])?)),
-        Value::Seq(arr) => Ok(Value::Seq(process_array(arr, path)?)),
-        Value::Map(tab) => Ok(Value::Map(process_table(tab, path)?)),
+        Value::String(val) => Ok(Value::String(process_string(val, path).await.map_err(|err| vec![err])?)),
+        Value::Seq(arr) => Ok(Value::Seq(Box::pin(process_array(arr, path)).await?)),
+        Value::Map(tab) => Ok(Value::Map(Box::pin(process_table(tab, path)).await?)),
         _ => Ok(value.clone()),
     }
 }
 
-fn process_table(table: &BTreeMap<Value, Value>, path: &[String]) -> Result<BTreeMap<Value, Value>, Vec<ResolveError>> {
+async fn process_table(
+    table: &BTreeMap<Value, Value>,
+    path: &[String],
+) -> Result<BTreeMap<Value, Value>, Vec<ResolveError>> {
     let mut processed_table = table.clone();
     let mut errors = Vec::new();
     for (key, value) in table.iter() {
@@ -41,7 +44,7 @@ fn process_table(table: &BTreeMap<Value, Value>, path: &[String]) -> Result<BTre
             child_path.push(p.to_owned());
         }
 
-        match process_any(value, &child_path) {
+        match process_any(value, &child_path).await {
             Ok(processed_value) => {
                 processed_table.insert(key.clone(), processed_value);
             }
@@ -56,13 +59,13 @@ fn process_table(table: &BTreeMap<Value, Value>, path: &[String]) -> Result<BTre
     Ok(processed_table)
 }
 
-fn process_array(arr: &[Value], path: &[String]) -> Result<Vec<Value>, Vec<ResolveError>> {
+async fn process_array(arr: &[Value], path: &[String]) -> Result<Vec<Value>, Vec<ResolveError>> {
     let mut processed_array = Vec::new();
     let mut errors = Vec::new();
     for (index, value) in arr.iter().enumerate() {
         let mut child_path = path.to_vec();
-        child_path.push(format!("[{index}]"));
-        match process_any(value, &child_path) {
+        child_path.push(format!("{index}"));
+        match process_any(value, &child_path).await {
             Ok(processed_value) => {
                 processed_array.push(processed_value);
             }
@@ -77,8 +80,8 @@ fn process_array(arr: &[Value], path: &[String]) -> Result<Vec<Value>, Vec<Resol
     Ok(processed_array)
 }
 
-fn process_string(val: &str, path: &[String]) -> Result<String, ResolveError> {
-    resolver::resolve(val).map_err(|err| ResolveError {
+async fn process_string(val: &str, path: &[String]) -> Result<String, ResolveError> {
+    resolver::resolve(val).await.map_err(|err| ResolveError {
         path: path.join("."),
         cause: err,
     })
@@ -155,19 +158,19 @@ mod tests {
         guard
     }
 
-    #[test]
-    fn success_process_any() {
+    #[tokio::test]
+    async fn success_process_any() {
         let _environment = init_env();
         let value = configuration("default", None);
-        let result = process(&value).unwrap();
+        let result = process(&value).await.unwrap();
         assert_eq!(
             nested_string(&result, &["clients", "aia", "url"]),
             "http://localhost:8080"
         );
     }
 
-    #[test]
-    fn success_process_json_path() {
+    #[tokio::test]
+    async fn success_process_json_path() {
         let _environment = init_env();
         let value = configuration(
             "default",
@@ -175,7 +178,7 @@ mod tests {
                 "jdbc:postgresql://${env:JSON_DATABASE_URL(jsonpath:$.database.credentials.username)}:${env:JSON_DATABASE_URL(jsonpath:$.database.credentials.password)}@${env:JSON_DATABASE_URL(jsonpath:$.database.host)}/${env:JSON_DATABASE_URL(jsonpath:$.database.db_name)}",
             ),
         );
-        let result = process(&value).unwrap();
+        let result = process(&value).await.unwrap();
         assert_eq!(nested_string(&result, &["profile", "name"]), "default");
         assert_eq!(
             nested_string(&result, &["database", "url"]),
@@ -183,14 +186,14 @@ mod tests {
         );
     }
 
-    #[test]
-    fn success_missing_var_with_default() {
+    #[tokio::test]
+    async fn success_missing_var_with_default() {
         let _environment = init_env();
         let value = configuration(
             "${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR:test}",
             Some("${env:PROFILED_CONFIG_TEST_DATABASE_URL:postgres://localhost:5432}"),
         );
-        let result = process(&value).unwrap();
+        let result = process(&value).await.unwrap();
         assert_eq!(nested_string(&result, &["profile", "name"]), "test");
         assert_eq!(
             nested_string(&result, &["database", "url"]),
@@ -198,31 +201,35 @@ mod tests {
         );
     }
 
-    #[test]
-    fn missing_variable_fallback_preserves_surrounding_literals() {
+    #[tokio::test]
+    async fn missing_variable_fallback_preserves_surrounding_literals() {
         let _environment = init_env();
         let value = string("prefix-${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR:fallback}-suffix");
 
-        let result = process(&value).expect("a missing variable with a fallback should resolve");
+        let result = process(&value).await.unwrap();
 
         assert_eq!(result, string("prefix-fallback-suffix"));
     }
 
-    #[test]
-    fn preserves_a_trailing_dollar_in_a_literal() {
+    #[tokio::test]
+    async fn preserves_a_trailing_dollar_in_a_literal() {
         let value = string("price$");
 
-        let result = process(&value).expect("a literal ending with '$' should be processed");
+        let result = process(&value)
+            .await
+            .expect("a literal ending with '$' should be processed");
 
         assert_eq!(result, string("price$"));
     }
 
-    #[test]
-    fn returns_the_path_and_provider_error_for_a_missing_env_var() {
+    #[tokio::test]
+    async fn returns_the_path_and_provider_error_for_a_missing_env_var() {
         let _environment = init_env();
         let value = configuration("${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR}", None);
 
-        let errors = process(&value).expect_err("a missing environment variable should be rejected");
+        let errors = process(&value)
+            .await
+            .expect_err("a missing environment variable should be rejected");
 
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].path, "profile.name");

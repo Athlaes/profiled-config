@@ -18,7 +18,7 @@ pub enum ResolverError {
     MissingDefaultValue { provider: String, key: String },
 }
 
-pub fn resolve(initial_value: &str) -> Result<String, ResolverError> {
+pub async fn resolve(initial_value: &str) -> Result<String, ResolverError> {
     let mut result = String::new();
     let parsed_value = ConfigValueParser::new(initial_value).parse_value()?;
     for part in &parsed_value.parts {
@@ -28,7 +28,7 @@ pub fn resolve(initial_value: &str) -> Result<String, ResolverError> {
             }
             ConfigValueParts::Expression(exp) => {
                 let provider = provider::get_provider(&exp.provider)?;
-                let expr_value = provider.resolve(&exp.key);
+                let expr_value = provider.resolve(&exp.key).await;
                 match expr_value {
                     Ok(value) => {
                         let mut tmp_val = value.clone();

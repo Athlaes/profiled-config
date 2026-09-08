@@ -1,5 +1,7 @@
 #[doc(hidden)]
 pub use include_dir;
+#[doc(hidden)]
+pub use tokio;
 
 #[doc(hidden)]
 pub use pipeline::load_config_from_dir_with;

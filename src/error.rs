@@ -34,6 +34,8 @@ pub enum ConfigError {
         #[source]
         cause: DeserializerError,
     },
+    #[error("Impossible de créer le runtime Tokio")]
+    Runtime(#[source] std::io::Error),
 }
 
 fn format_error(causes: &[ResolveError]) -> String {

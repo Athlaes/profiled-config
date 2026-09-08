@@ -11,7 +11,7 @@ pub enum ProviderError {
 }
 
 pub trait Provider {
-    fn resolve(&self, key: &str) -> Result<String, ProviderError>;
+    async fn resolve(&self, key: &str) -> Result<String, ProviderError>;
 }
 
 pub fn get_provider(key: &str) -> Result<impl Provider, ProviderError> {
