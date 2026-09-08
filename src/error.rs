@@ -1,7 +1,7 @@
 use serde_value::DeserializerError;
 use thiserror::Error;
 
-use crate::expression::ResolveError;
+use crate::{bootstrap::BootstrapError, expression::ResolveError};
 
 #[derive(Debug, Error)]
 pub enum LoaderError {
@@ -27,6 +27,8 @@ pub enum LoaderError {
 pub enum ConfigError {
     #[error("Failed to load configuration : {0}")]
     Loading(#[from] LoaderError),
+    #[error(transparent)]
+    Bootsrap(#[from] BootstrapError),
     #[error("Failed to resolve configuration :\n\n{}", format_error(causes))]
     Resolve { causes: Vec<ResolveError> },
     #[error("Failed to deserialize configuration : {cause}")]

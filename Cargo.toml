@@ -30,12 +30,14 @@ ini = ["dep:serde_ini"]
 yaml = ["dep:yaml_serde"]
 toml = ["dep:toml"]
 
+vault = []
+
 [dependencies]
 include_dir = "0.7.4"
 log = "0.4.33"
 regex = "1.13.1"
+serde = { version = "1.0.229", features = ["derive"] }
 serde-value = "0.7.0"
-serde_core = "1.0.229"
 serde_json = "1.0.151"
 serde_json_path = "0.7.2"
 thiserror = "2.0.20"

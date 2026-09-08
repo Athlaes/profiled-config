@@ -14,20 +14,18 @@
 
 ## Then: prepare remote providers
 
-- [ ] Add asynchronous configuration loading.
+- [X] Add asynchronous configuration loading.
+- [X] Provide user ability to add custom provider
 - [ ] Add a two-phase bootstrap process for provider configuration & add Vault as the first optional provider behind a Cargo feature.
 
 ## Later
 
 - [ ] Allow vault provider to load all secrets under a specific path then merge
-- [ ] Add arg to update overrides file path
 - [ ] Allow the runtime override file or path to be configured.
-- [ ] Introduce internal abstractions for value providers and configuration sources.
-- [ ] Migrate the environment provider to the new abstractions.
 - [ ] Automate changelog generation.
-- [ ] Add configuration validation hooks.
 - [ ] Evaluate Git, Redis, and Consul integrations.
 - [ ] Add focused examples and compatibility documentation.
+- [ ] Add configuration validation hooks.
 
 ## Planned Vault usage
 

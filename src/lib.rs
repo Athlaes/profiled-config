@@ -7,6 +7,7 @@ pub use tokio;
 pub use pipeline::load_config_from_dir_with;
 
 mod api;
+mod bootstrap;
 mod error;
 mod expression;
 mod format;
@@ -17,6 +18,7 @@ mod source;
 pub use api::LoadOptions;
 pub use api::ProfiledConfigArgs;
 pub use error::ConfigError;
+pub use expression::provider::Provider;
 
 #[cfg(feature = "macros")]
 pub use profiled_config_macros::profiled_config;

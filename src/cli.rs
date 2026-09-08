@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use crate::ProfiledConfigArgs;
+use crate::api::ProfiledConfigArgs;
 
 #[derive(Parser)]
 #[command(version, about, long_about = "")]

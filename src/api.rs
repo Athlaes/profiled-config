@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+
+use crate::Provider;
+
 #[derive(clap::Args)]
 pub struct ProfiledConfigArgs {
     #[arg(short, long, value_delimiter = ',')]
@@ -9,6 +13,7 @@ pub struct ProfiledConfigArgs {
 pub struct LoadOptions {
     pub profiles: Vec<String>,
     pub overrides: Vec<String>,
+    pub additional_providers: HashMap<String, Box<dyn Provider>>,
 }
 
 impl From<ProfiledConfigArgs> for LoadOptions {
@@ -16,6 +21,7 @@ impl From<ProfiledConfigArgs> for LoadOptions {
         Self {
             profiles: value.profiles,
             overrides: value.overrides,
+            additional_providers: HashMap::new(),
         }
     }
 }
@@ -48,7 +54,7 @@ macro_rules! load_config {
             .build()
             .unwrap_or_else(|err| panic!("{err}"));
         runtime
-            .block_on($crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options))
+            .block_on($crate::load_config_from_dir_with(&CONFIG_FOLDER, $options))
             .unwrap_or_else(|err| panic!("{err}"))
     }};
 }
@@ -67,7 +73,7 @@ macro_rules! load_config {
             .build()
             .unwrap_or_else(|err| panic!("{err}"));
         runtime
-            .block_on($crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options))
+            .block_on($crate::load_config_from_dir_with(&CONFIG_FOLDER, $options))
             .unwrap_or_else(|err| panic!("{err}"))
     }};
 }
@@ -90,7 +96,7 @@ macro_rules! load_config_async {
 
         static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
 
-        $crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options)
+        $crate::load_config_from_dir_with(&CONFIG_FOLDER, $options)
             .await
             .unwrap_or_else(|err| panic!("{err}"))
     }};
@@ -104,7 +110,7 @@ macro_rules! load_config_async {
 
         static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
 
-        $crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options)
+        $crate::load_config_from_dir_with(&CONFIG_FOLDER, $options)
             .await
             .unwrap_or_else(|err| panic!("{err}"))
     }};
@@ -121,7 +127,7 @@ macro_rules! try_load_config {
             .enable_all()
             .build()
             .map_err($crate::ConfigError::Runtime)
-            .and_then(|runtime| runtime.block_on($crate::load_config_from_dir(&CONFIG_FOLDER, &$options)))
+            .and_then(|runtime| runtime.block_on($crate::load_config_from_dir(&CONFIG_FOLDER, $options)))
     }};
 
     ($options:expr) => {{
@@ -133,7 +139,7 @@ macro_rules! try_load_config {
             .enable_all()
             .build()
             .map_err($crate::ConfigError::Runtime)
-            .and_then(|runtime| runtime.block_on($crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options)))
+            .and_then(|runtime| runtime.block_on($crate::load_config_from_dir_with(&CONFIG_FOLDER, $options)))
     }};
 }
 
@@ -149,7 +155,7 @@ macro_rules! try_load_config {
             .enable_all()
             .build()
             .map_err($crate::ConfigError::Runtime)
-            .and_then(|runtime| runtime.block_on($crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options)))
+            .and_then(|runtime| runtime.block_on($crate::load_config_from_dir_with(&CONFIG_FOLDER, $options)))
     }};
 }
 
@@ -170,7 +176,7 @@ macro_rules! try_load_config_async {
 
         static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
 
-        $crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options).await
+        $crate::load_config_from_dir_with(&CONFIG_FOLDER, $options).await
     }};
 }
 
@@ -183,6 +189,6 @@ macro_rules! try_load_config_async {
 
         static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
 
-        $crate::load_config_from_dir_with(&CONFIG_FOLDER, &$options).await
+        $crate::load_config_from_dir_with(&CONFIG_FOLDER, $options).await
     }};
 }

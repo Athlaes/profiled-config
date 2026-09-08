@@ -5,10 +5,12 @@ use super::{Provider, ProviderError};
 pub struct EnvProvider;
 
 impl Provider for EnvProvider {
-    async fn resolve(&self, key: &str) -> Result<String, ProviderError> {
-        env::var(key).map_err(|err| ProviderError::VariableNotFound {
-            key: key.to_string(),
-            cause_str: err.to_string(),
+    fn resolve<'a>(&'a self, key: &'a str) -> super::ResolveFuture<'a> {
+        Box::pin(async move {
+            env::var(key).map_err(|err| ProviderError::VariableNotFound {
+                key: key.to_string(),
+                cause_str: err.to_string(),
+            })
         })
     }
 }
