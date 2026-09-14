@@ -25,9 +25,14 @@ pub enum ProviderError {
     ProviderNotFound { key: String },
     #[error("Provider key '{key}' is already defined")]
     ProviderKeyAlreadyDefined { key: String },
+    #[error("Provider initialization failed: {0}")]
+    Init(String),
 }
 
 type ResolveFuture<'a> = Pin<Box<dyn Future<Output = Result<String, ProviderError>> + 'a>>;
+
+pub type ProviderFactory<C: DeserializeOwned> =
+    Box<dyn Fn(C) -> Pin<Box<dyn Future<Output = Result<Box<dyn Provider>, ProviderError>>>>>;
 
 pub trait Provider: Send + Sync {
     fn resolve<'a>(&'a self, key: &'a str) -> ResolveFuture<'a>;
@@ -48,7 +53,7 @@ impl ProviderRegistry {
         &mut self,
         config_values: &Value,
         key: &str,
-        provider_factory: Box<dyn Fn(C) -> Pin<Box<dyn Future<Output = Result<Box<dyn Provider>, ProviderError>>>>>,
+        provider_factory: ProviderFactory<C>,
     ) -> Result<(), ProviderError>
     where
         C: DeserializeOwned,

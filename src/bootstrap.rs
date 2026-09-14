@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::{
     Provider,
-    expression::provider::{EnvProvider, ProviderError, ProviderRegistry},
+    expression::provider::{EnvProvider, ProviderError, ProviderFactory, ProviderRegistry},
 };
 
 #[derive(Debug, Deserialize)]
@@ -25,16 +25,17 @@ pub enum BootstrapError {
     ProviderConfiguration(#[from] ProviderError),
 }
 
-pub fn configure_providers(
+pub async fn configure_providers(
     merged_values: &Value,
-    additional_providers: HashMap<String, Box<dyn Provider>>,
+    additional_providers: HashMap<String, ProviderFactory<C>>,
 ) -> Result<ProviderRegistry, BootstrapError> {
     let mut pr = ProviderRegistry::new();
-    pr.register_provider("env", Box::new(EnvProvider))?;
+    pr.register_provider(merged_values, "env", Box::new(EnvProvider::create))
+        .await?;
     #[cfg(feature = "vault")]
-    pr.register_provider("env", Box::new(expression::provider::VaultProvider))?;
+    pr.register_provider("vault", Box::new(VaultProvider::create)).await?;
     for (key, provider) in additional_providers.into_iter() {
-        pr.register_provider(&key, provider)?;
+        pr.register_provider(merged_values, &key, provider).await?;
     }
     Ok(pr)
 }
