@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde_value::Value;
 use thiserror::Error;
 
-use crate::expression::provider::ProviderRegistry;
+use crate::expression::provider::registry::ProviderRegistry;
 
 use super::{
     parser::{ConfigValueParser, ConfigValueParts, ExpressionParserError},
@@ -154,7 +154,7 @@ impl ExpressionResolver {
 mod tests {
     use std::sync::{Mutex, MutexGuard};
 
-    use crate::expression::provider::EnvProvider;
+    use crate::expression::provider::{EnvProvider, Provider};
 
     use super::*;
     use std::env;
@@ -228,7 +228,9 @@ mod tests {
         let _environment = init_env();
         let value = configuration("default", None);
         let mut pr = ProviderRegistry::new();
-        pr.register_provider("env", Box::new(EnvProvider)).unwrap();
+        pr.register_provider(&value, "env", Box::new(EnvProvider::create))
+            .await
+            .unwrap();
         let resolver = ExpressionResolver::new(pr);
         let result = resolver.process(&value).await.unwrap();
         assert_eq!(
@@ -248,7 +250,9 @@ mod tests {
         );
 
         let mut pr = ProviderRegistry::new();
-        pr.register_provider("env", Box::new(EnvProvider)).unwrap();
+        pr.register_provider(&value, "env", Box::new(EnvProvider::create))
+            .await
+            .unwrap();
         let resolver = ExpressionResolver::new(pr);
         let result = resolver.process(&value).await.unwrap();
         assert_eq!(nested_string(&result, &["profile", "name"]), "default");
@@ -268,7 +272,9 @@ mod tests {
         );
 
         let mut pr = ProviderRegistry::new();
-        pr.register_provider("env", Box::new(EnvProvider)).unwrap();
+        pr.register_provider(&value, "env", Box::new(EnvProvider::create))
+            .await
+            .unwrap();
         let resolver = ExpressionResolver::new(pr);
         let result = resolver.process(&value).await.unwrap();
 
@@ -285,7 +291,9 @@ mod tests {
         let value = string("prefix-${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR:fallback}-suffix");
 
         let mut pr = ProviderRegistry::new();
-        pr.register_provider("env", Box::new(EnvProvider)).unwrap();
+        pr.register_provider(&value, "env", Box::new(EnvProvider::create))
+            .await
+            .unwrap();
         let resolver = ExpressionResolver::new(pr);
         let result = resolver.process(&value).await.unwrap();
 
@@ -296,7 +304,9 @@ mod tests {
     async fn preserves_a_trailing_dollar_in_a_literal() {
         let value = string("price$");
         let mut pr = ProviderRegistry::new();
-        pr.register_provider("env", Box::new(EnvProvider)).unwrap();
+        pr.register_provider(&value, "env", Box::new(EnvProvider::create))
+            .await
+            .unwrap();
         let resolver = ExpressionResolver::new(pr);
         let result = resolver
             .process(&value)
@@ -312,7 +322,9 @@ mod tests {
         let value = configuration("${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR}", None);
 
         let mut pr = ProviderRegistry::new();
-        pr.register_provider("env", Box::new(EnvProvider)).unwrap();
+        pr.register_provider(&value, "env", Box::new(EnvProvider::create))
+            .await
+            .unwrap();
         let resolver = ExpressionResolver::new(pr);
         let errors = resolver
             .process(&value)

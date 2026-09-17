@@ -17,7 +17,10 @@ where
     load_config_from_dir_with(config_folder, args.profiled_config.into()).await
 }
 
-pub async fn load_config_from_dir_with<T>(config_folder: &Dir<'_>, options: LoadOptions) -> Result<T, ConfigError>
+pub async fn load_config_from_dir_with<'a, T>(
+    config_folder: &Dir<'_>,
+    options: LoadOptions<'a>,
+) -> Result<T, ConfigError>
 where
     T: DeserializeOwned,
 {

@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, hash_map::Entry};
 
-use crate::Provider;
+use crate::{Provider, ProviderFactoryClosure, expression::provider::ProviderError};
 
 #[derive(clap::Args)]
 pub struct ProfiledConfigArgs {
@@ -10,13 +10,28 @@ pub struct ProfiledConfigArgs {
     pub overrides: Vec<String>,
 }
 
-pub struct LoadOptions {
+pub struct LoadOptions<'a> {
     pub profiles: Vec<String>,
     pub overrides: Vec<String>,
-    pub additional_providers: HashMap<String, Box<dyn Provider>>,
+    pub(crate) additional_providers: HashMap<String, ProviderFactoryClosure<'a>>,
 }
 
-impl From<ProfiledConfigArgs> for LoadOptions {
+impl<'a> LoadOptions<'a> {
+    pub fn add_provider<P: Provider>(&mut self) -> Result<(), ProviderError> {
+        let key = P::key();
+        match self.additional_providers.entry(key) {
+            Entry::Occupied(entry) => Err(ProviderError::ProviderKeyAlreadyDefined {
+                key: entry.key().clone(),
+            }),
+            Entry::Vacant(entry) => {
+                entry.insert(Box::new(|values| P::create(values)));
+                Ok(())
+            }
+        }
+    }
+}
+
+impl<'a> From<ProfiledConfigArgs> for LoadOptions<'a> {
     fn from(value: ProfiledConfigArgs) -> Self {
         Self {
             profiles: value.profiles,

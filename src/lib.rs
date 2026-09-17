@@ -19,6 +19,8 @@ pub use api::LoadOptions;
 pub use api::ProfiledConfigArgs;
 pub use error::ConfigError;
 pub use expression::provider::Provider;
+pub use expression::provider::ProviderFactoryClosure;
+pub use expression::provider::ProviderFactoryFuture;
 
 #[cfg(feature = "macros")]
 pub use profiled_config_macros::profiled_config;
