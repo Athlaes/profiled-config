@@ -29,7 +29,7 @@ where
     let files_content = source::load_values(config_folder, profiles, overrides)?;
     let merged_content = merge::merge_values(&files_content);
     let registry = configure_providers(&merged_content, options.additional_providers).await?;
-    let resolver = ExpressionResolver::new(registry);
+    let resolver = ExpressionResolver::new(&registry);
     let processed_content = resolver
         .process(&merged_content)
         .await

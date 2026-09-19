@@ -22,7 +22,7 @@ categories = ["config"]
 publish = ["crates-io"]
 
 [features]
-default = ["toml", "macros", "vault"]
+default = ["toml", "macros"]
 macros = ["dep:profiled_config_macros", "auto-cli"]
 auto-cli = []
 

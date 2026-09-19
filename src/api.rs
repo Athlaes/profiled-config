@@ -1,6 +1,9 @@
 use std::collections::{HashMap, hash_map::Entry};
 
-use crate::{Provider, ProviderFactoryClosure, expression::provider::ProviderError};
+use crate::{
+    Provider,
+    expression::provider::{ProviderError, registry::ProviderRegistration},
+};
 
 #[derive(clap::Args)]
 pub struct ProfiledConfigArgs {
@@ -13,10 +16,18 @@ pub struct ProfiledConfigArgs {
 pub struct LoadOptions<'a> {
     pub profiles: Vec<String>,
     pub overrides: Vec<String>,
-    pub(crate) additional_providers: HashMap<String, ProviderFactoryClosure<'a>>,
+    pub(crate) additional_providers: HashMap<String, ProviderRegistration<'a>>,
 }
 
 impl<'a> LoadOptions<'a> {
+    pub fn new(profiles: Vec<String>, overrides: Vec<String>) -> Self {
+        Self {
+            profiles,
+            overrides,
+            additional_providers: HashMap::new(),
+        }
+    }
+
     pub fn add_provider<P: Provider>(&mut self) -> Result<(), ProviderError> {
         let key = P::key();
         match self.additional_providers.entry(key) {
@@ -24,7 +35,10 @@ impl<'a> LoadOptions<'a> {
                 key: entry.key().clone(),
             }),
             Entry::Vacant(entry) => {
-                entry.insert(Box::new(|values| P::create(values)));
+                entry.insert(ProviderRegistration {
+                    factory: Box::new(|values| P::create(values)),
+                    activation: P::activation(),
+                });
                 Ok(())
             }
         }

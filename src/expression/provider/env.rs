@@ -3,7 +3,7 @@ use std::env;
 
 use crate::{
     ProviderFactoryFuture,
-    expression::provider::{Provider, ResolveFuture},
+    expression::provider::{Provider, ProviderActivation, ResolveFuture},
 };
 
 use super::ProviderError;
@@ -28,5 +28,12 @@ impl Provider for EnvProvider {
                 cause_str: err.to_string(),
             })
         })
+    }
+
+    fn activation() -> ProviderActivation
+    where
+        Self: Sized,
+    {
+        ProviderActivation::Always
     }
 }

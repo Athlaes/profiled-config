@@ -31,12 +31,12 @@ pub enum ResolverError {
     MissingDefaultValue { provider: String, key: String },
 }
 
-pub struct ExpressionResolver {
-    pr: ProviderRegistry,
+pub struct ExpressionResolver<'a> {
+    pr: &'a ProviderRegistry,
 }
 
-impl ExpressionResolver {
-    pub fn new(pr: ProviderRegistry) -> Self {
+impl<'a> ExpressionResolver<'a> {
+    pub fn new(pr: &'a ProviderRegistry) -> Self {
         Self { pr }
     }
 
@@ -154,7 +154,7 @@ impl ExpressionResolver {
 mod tests {
     use std::sync::{Mutex, MutexGuard};
 
-    use crate::expression::provider::{EnvProvider, Provider};
+    use crate::expression::provider::{EnvProvider, Provider, ProviderActivation, registry::ProviderRegistration};
 
     use super::*;
     use std::env;
@@ -228,10 +228,17 @@ mod tests {
         let _environment = init_env();
         let value = configuration("default", None);
         let mut pr = ProviderRegistry::new();
-        pr.register_provider(&value, "env", Box::new(EnvProvider::create))
-            .await
-            .unwrap();
-        let resolver = ExpressionResolver::new(pr);
+        pr.register_provider(
+            &value,
+            "env",
+            &ProviderRegistration {
+                factory: Box::new(EnvProvider::create),
+                activation: ProviderActivation::Always,
+            },
+        )
+        .await
+        .unwrap();
+        let resolver = ExpressionResolver::new(&pr);
         let result = resolver.process(&value).await.unwrap();
         assert_eq!(
             nested_string(&result, &["clients", "aia", "url"]),
@@ -250,10 +257,17 @@ mod tests {
         );
 
         let mut pr = ProviderRegistry::new();
-        pr.register_provider(&value, "env", Box::new(EnvProvider::create))
-            .await
-            .unwrap();
-        let resolver = ExpressionResolver::new(pr);
+        pr.register_provider(
+            &value,
+            "env",
+            &ProviderRegistration {
+                factory: Box::new(EnvProvider::create),
+                activation: ProviderActivation::Always,
+            },
+        )
+        .await
+        .unwrap();
+        let resolver = ExpressionResolver::new(&pr);
         let result = resolver.process(&value).await.unwrap();
         assert_eq!(nested_string(&result, &["profile", "name"]), "default");
 
@@ -272,10 +286,17 @@ mod tests {
         );
 
         let mut pr = ProviderRegistry::new();
-        pr.register_provider(&value, "env", Box::new(EnvProvider::create))
-            .await
-            .unwrap();
-        let resolver = ExpressionResolver::new(pr);
+        pr.register_provider(
+            &value,
+            "env",
+            &ProviderRegistration {
+                factory: Box::new(EnvProvider::create),
+                activation: ProviderActivation::Always,
+            },
+        )
+        .await
+        .unwrap();
+        let resolver = ExpressionResolver::new(&pr);
         let result = resolver.process(&value).await.unwrap();
 
         assert_eq!(nested_string(&result, &["profile", "name"]), "test");
@@ -291,10 +312,17 @@ mod tests {
         let value = string("prefix-${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR:fallback}-suffix");
 
         let mut pr = ProviderRegistry::new();
-        pr.register_provider(&value, "env", Box::new(EnvProvider::create))
-            .await
-            .unwrap();
-        let resolver = ExpressionResolver::new(pr);
+        pr.register_provider(
+            &value,
+            "env",
+            &ProviderRegistration {
+                factory: Box::new(EnvProvider::create),
+                activation: ProviderActivation::Always,
+            },
+        )
+        .await
+        .unwrap();
+        let resolver = ExpressionResolver::new(&pr);
         let result = resolver.process(&value).await.unwrap();
 
         assert_eq!(result, string("prefix-fallback-suffix"));
@@ -304,10 +332,17 @@ mod tests {
     async fn preserves_a_trailing_dollar_in_a_literal() {
         let value = string("price$");
         let mut pr = ProviderRegistry::new();
-        pr.register_provider(&value, "env", Box::new(EnvProvider::create))
-            .await
-            .unwrap();
-        let resolver = ExpressionResolver::new(pr);
+        pr.register_provider(
+            &value,
+            "env",
+            &ProviderRegistration {
+                factory: Box::new(EnvProvider::create),
+                activation: ProviderActivation::Always,
+            },
+        )
+        .await
+        .unwrap();
+        let resolver = ExpressionResolver::new(&pr);
         let result = resolver
             .process(&value)
             .await
@@ -322,10 +357,17 @@ mod tests {
         let value = configuration("${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR}", None);
 
         let mut pr = ProviderRegistry::new();
-        pr.register_provider(&value, "env", Box::new(EnvProvider::create))
-            .await
-            .unwrap();
-        let resolver = ExpressionResolver::new(pr);
+        pr.register_provider(
+            &value,
+            "env",
+            &&ProviderRegistration {
+                factory: Box::new(EnvProvider::create),
+                activation: ProviderActivation::Always,
+            },
+        )
+        .await
+        .unwrap();
+        let resolver = ExpressionResolver::new(&pr);
         let errors = resolver
             .process(&value)
             .await

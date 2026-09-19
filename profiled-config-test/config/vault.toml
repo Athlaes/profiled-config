@@ -1,0 +1,9 @@
+[profiled_config.providers.vault]
+url = "http://127.0.0.1:${env:VAULT_PORT}"
+mount = "secret"
+
+[profiled_config.providers.vault.auth.Token]
+token = "dev-only-token"
+
+[test]
+vault_value = "${vault:profiled_config/vault/vault_value}"

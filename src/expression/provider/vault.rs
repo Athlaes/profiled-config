@@ -7,7 +7,7 @@ use vaultrs::{
 
 use crate::{
     ProviderFactoryFuture,
-    expression::provider::{Provider, ProviderError, ResolveFuture},
+    expression::provider::{Provider, ProviderActivation, ProviderError, ResolveFuture},
 };
 
 #[derive(Deserialize)]
@@ -35,6 +35,10 @@ pub struct VaultProvider {
 }
 
 impl Provider for VaultProvider {
+    fn key() -> String {
+        "vault".to_string()
+    }
+
     fn create<'a>(value: &Value) -> ProviderFactoryFuture<'a> {
         let config = value
             .clone()
@@ -104,10 +108,10 @@ impl Provider for VaultProvider {
         })
     }
 
-    fn key() -> String
+    fn activation() -> super::ProviderActivation
     where
         Self: Sized,
     {
-        "vault".to_string()
+        ProviderActivation::WhenConfigured
     }
 }
