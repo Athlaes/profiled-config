@@ -60,7 +60,7 @@ config/default.*
 config/<profile>.*
 ./overrides.*
 --overrides <path>=<value>
-environment expressions
+provider expressions (env, Vault, custom)
 ```
 
 ```toml
@@ -102,6 +102,47 @@ from_json = "${env:SERVICE_JSON(jsonpath:$.host):localhost}"
 ```
 
 A missing value without a fallback stops loading.
+
+## Vault secrets
+
+Enable Vault support:
+
+```shell
+cargo add profiled_config --features vault
+```
+
+For a KV v2 secret at `apps/my-service` in the `secret` mount, containing
+`{"password":"s3cr3t"}`:
+
+```toml
+# config/default.toml
+[database]
+password = "${vault:apps/my-service/password}"
+
+[profiled_config.providers.vault]
+url = "${env:VAULT_ADDR}"
+mount = "secret"
+
+[profiled_config.providers.vault.auth.Token]
+token = "${env:VAULT_TOKEN}"
+```
+
+`${vault:<secret-path>/<field>}` reads one field; omit the mount and `/data/`
+from the expression. Here, `database.password` becomes `s3cr3t`.
+For a JSON object field, select a nested value with
+`${vault:apps/my-service/credentials(jsonpath:$.password)}`.
+
+For AppRole authentication, replace the `auth.Token` table with:
+
+```toml
+[profiled_config.providers.vault.auth.AppRole]
+mount = "approle"
+role_id = "${env:VAULT_ROLE_ID}"
+secret_id = "${env:VAULT_SECRET_ID}"
+```
+
+Vault is initialized automatically when its configuration is present;
+no `add_provider` call is needed.
 
 ## Formats
 
@@ -175,6 +216,71 @@ fn main() -> Result<(), profiled_config::ConfigError> {
 `macros` enables the `#[profiled_config]` attribute; `load_config!` and
 `try_load_config!` remain available without it.
 
-## License
+## Custom providers
 
-[MIT](LICENCE). Inspired by Spring profiles; not affiliated with Spring.
+Implement `Provider`, then register it in `LoadOptions` before loading.
+This example exposes values from a configuration table as `${local:<key>}`:
+
+```shell
+cargo add serde-value
+```
+
+```toml
+# config/default.toml
+name = "${local:service_name}"
+
+[profiled_config.providers.local]
+service_name = "my-service"
+```
+
+```rust
+use std::{collections::BTreeMap, future::Future, pin::Pin};
+use profiled_config::{
+    LoadOptions, Provider, ProviderActivation, ProviderError, ProviderFactoryFuture,
+};
+use serde_value::Value;
+
+struct LocalProvider(BTreeMap<String, String>);
+
+impl Provider for LocalProvider {
+    fn key() -> String { "local".into() }
+
+    fn activation() -> ProviderActivation { ProviderActivation::WhenConfigured }
+
+    fn create<'a>(values: &Value) -> ProviderFactoryFuture<'a> {
+        let values = values.clone().deserialize_into::<BTreeMap<String, String>>();
+        Box::pin(async move {
+            let values = values.map_err(|err| ProviderError::Init(err.to_string()))?;
+            Ok(Box::new(Self(values)) as Box<dyn Provider>)
+        })
+    }
+
+    fn resolve<'a>(&'a self, key: &'a str)
+        -> Pin<Box<dyn Future<Output = Result<String, ProviderError>> + 'a>>
+    {
+        Box::pin(async move {
+            self.0.get(key).cloned().ok_or_else(|| ProviderError::VariableNotFound {
+                key: key.into(),
+                cause_str: "Unknown local key".into(),
+            })
+        })
+    }
+}
+```
+
+`create` receives the provider's table after its expressions are resolved;
+`resolve` receives the key after `local:`. `WhenConfigured` requires that table;
+use `Always` for a provider that can initialize without one.
+
+Register it when loading your `Config`:
+
+```rust
+let mut options = LoadOptions::new(vec![], vec![]);
+options.add_provider::<LocalProvider>()?;
+let config: Config = profiled_config::try_load_config!(options)?;
+assert_eq!(config.name, "my-service");
+```
+
+In an async function, use `try_load_config_async!(options)` instead;
+the macro awaits loading for you. With your own CLI, build `options` from
+`cli.config.into()` as above to keep profiles and overrides.
