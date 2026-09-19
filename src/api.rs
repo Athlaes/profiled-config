@@ -60,6 +60,7 @@ impl<'a> From<ProfiledConfigArgs> for LoadOptions<'a> {
 macro_rules! load_config {
     () => {{
         use $crate::include_dir;
+        use $crate::tokio;
 
         static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
 
@@ -150,17 +151,19 @@ macro_rules! load_config_async {
 macro_rules! try_load_config {
     () => {{
         use $crate::include_dir;
+        use $crate::tokio;
 
         static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
         tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .map_err($crate::ConfigError::Runtime)
-            .and_then(|runtime| runtime.block_on($crate::load_config_from_dir(&CONFIG_FOLDER, $options)))
+            .and_then(|runtime| runtime.block_on($crate::load_config_from_dir(&CONFIG_FOLDER)))
     }};
 
     ($options:expr) => {{
         use $crate::include_dir;
+        use $crate::tokio;
 
         static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
 
@@ -177,6 +180,7 @@ macro_rules! try_load_config {
 macro_rules! try_load_config {
     ($options:expr) => {{
         use $crate::include_dir;
+        use $crate::tokio;
 
         static CONFIG_FOLDER: include_dir::Dir<'static> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
 

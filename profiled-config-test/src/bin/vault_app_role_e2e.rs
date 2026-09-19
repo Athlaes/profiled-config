@@ -17,9 +17,8 @@ struct Test {
     overrides: String,
 }
 
-#[tokio::main]
-async fn main() {
-    let config: Config = profiled_config::load_config_async!(LoadOptions::new(
+fn main() {
+    let config: Config = profiled_config::load_config!(LoadOptions::new(
         vec!["vault_app_role".to_string()],
         vec!["test.overrides=hello".to_string()]
     ));

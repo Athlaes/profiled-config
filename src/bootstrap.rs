@@ -30,7 +30,7 @@ pub async fn configure_providers<'a>(
     .await?;
     #[cfg(feature = "vault")]
     pr.register_provider(
-        &merged_values,
+        merged_values,
         "vault",
         &ProviderRegistration {
             factory: Box::new(crate::expression::provider::vault::VaultProvider::create),
