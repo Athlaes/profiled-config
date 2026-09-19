@@ -1,0 +1,11 @@
+[profiled_config.providers.vault]
+url = "http://127.0.0.1:${env:VAULT_PORT}"
+mount = "secret"
+
+[profiled_config.providers.vault.auth.AppRole]
+mount = "approle"
+role_id = "${env:VAULT_ROLE_ID}"
+secret_id = "${env:VAULT_SECRET_ID}"
+
+[test]
+vault_value = "${vault:profiled_config/vault/vault_value}"
