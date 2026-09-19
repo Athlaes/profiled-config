@@ -10,22 +10,22 @@
 
 - [x] Return structured errors throughout the loading pipeline instead of logging or ignoring failures & expose a public, fallible loading API.
 - [x] Clean up the internal loader, parser, resolver, and provider module boundaries.
-- [ ] Support applications that own their Clap command-line parser.
+- [X] Support applications that own their Clap command-line parser.
 
 ## Then: prepare remote providers
 
+- [X] Add asynchronous configuration loading.
+- [X] Provide user ability to add custom provider
 - [ ] Add a two-phase bootstrap process for provider configuration & add Vault as the first optional provider behind a Cargo feature.
 
 ## Later
 
+- [ ] Allow vault provider to load all secrets under a specific path then merge
 - [ ] Allow the runtime override file or path to be configured.
-- [ ] Add asynchronous configuration loading.
-- [ ] Introduce internal abstractions for value providers and configuration sources.
-- [ ] Migrate the environment provider to the new abstractions.
 - [ ] Automate changelog generation.
-- [ ] Add configuration validation hooks.
 - [ ] Evaluate Git, Redis, and Consul integrations.
 - [ ] Add focused examples and compatibility documentation.
+- [ ] Add configuration validation hooks.
 
 ## Planned Vault usage
 

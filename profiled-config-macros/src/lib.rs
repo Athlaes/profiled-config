@@ -72,6 +72,15 @@ fn expand_profiled_config(function: ItemFn, args: ProfiledConfigArgs) -> syn::Re
         }
     });
 
+    let f_to_call = match is_async {
+        true => quote! {
+            profiled_config::load_config_async!();
+        },
+        false => quote! {
+            profiled_config::load_config!();
+        },
+    };
+
     Ok(quote! {
         #asyncness fn #inner_name(
             #config_pattern: #config_type
@@ -83,7 +92,7 @@ fn expand_profiled_config(function: ItemFn, args: ProfiledConfigArgs) -> syn::Re
         #visibility #asyncness fn main() #output {
             #before_load
 
-            let config: #config_type = profiled_config::load_config!();
+            let config: #config_type = #f_to_call;
 
             #call
         }

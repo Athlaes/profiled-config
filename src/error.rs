@@ -1,7 +1,7 @@
 use serde_value::DeserializerError;
 use thiserror::Error;
 
-use crate::expression::ResolveError;
+use crate::{bootstrap::BootstrapError, expression::ResolveError};
 
 #[derive(Debug, Error)]
 pub enum LoaderError {
@@ -27,6 +27,8 @@ pub enum LoaderError {
 pub enum ConfigError {
     #[error("Failed to load configuration : {0}")]
     Loading(#[from] LoaderError),
+    #[error(transparent)]
+    Bootsrap(#[from] BootstrapError),
     #[error("Failed to resolve configuration :\n\n{}", format_error(causes))]
     Resolve { causes: Vec<ResolveError> },
     #[error("Failed to deserialize configuration : {cause}")]
@@ -34,9 +36,11 @@ pub enum ConfigError {
         #[source]
         cause: DeserializerError,
     },
+    #[error("Impossible de créer le runtime Tokio")]
+    Runtime(#[source] std::io::Error),
 }
 
-fn format_error(causes: &[ResolveError]) -> String {
+pub fn format_error(causes: &[ResolveError]) -> String {
     let mut formatted = String::new();
     for error in causes {
         formatted.push_str(format!("path: {} error: {}\n", error.path, error.cause).as_str());
