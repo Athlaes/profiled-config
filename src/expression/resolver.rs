@@ -152,14 +152,14 @@ impl<'a> ExpressionResolver<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Mutex, MutexGuard};
+    use tokio::sync::{Mutex, MutexGuard};
 
     use crate::expression::provider::{EnvProvider, Provider, ProviderActivation, registry::ProviderRegistration};
 
     use super::*;
     use std::env;
 
-    static ENVIRONMENT: Mutex<()> = Mutex::new(());
+    static ENVIRONMENT: Mutex<()> = Mutex::const_new(());
     const MISSING_ENV_VAR: &str = "PROFILED_CONFIG_TEST_MISSING_ENV_VAR";
     const DATABASE_URL: &str = "PROFILED_CONFIG_TEST_DATABASE_URL";
 
@@ -207,8 +207,8 @@ mod tests {
         value
     }
 
-    fn init_env() -> MutexGuard<'static, ()> {
-        let guard = ENVIRONMENT.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    async fn init_env() -> MutexGuard<'static, ()> {
+        let guard = ENVIRONMENT.lock().await;
         unsafe {
             env::set_var("SERVICE_PROTOCOL", "http");
             env::set_var("SERVICE_HOST", "localhost");
@@ -225,7 +225,7 @@ mod tests {
 
     #[tokio::test]
     async fn success_process_any() {
-        let _environment = init_env();
+        let _environment = init_env().await;
         let value = configuration("default", None);
         let mut pr = ProviderRegistry::new();
         pr.register_provider(
@@ -248,7 +248,7 @@ mod tests {
 
     #[tokio::test]
     async fn success_process_json_path() {
-        let _environment = init_env();
+        let _environment = init_env().await;
         let value = configuration(
             "default",
             Some(
@@ -279,7 +279,7 @@ mod tests {
 
     #[tokio::test]
     async fn success_missing_var_with_default() {
-        let _environment = init_env();
+        let _environment = init_env().await;
         let value = configuration(
             "${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR:test}",
             Some("${env:PROFILED_CONFIG_TEST_DATABASE_URL:postgres://localhost:5432}"),
@@ -308,7 +308,7 @@ mod tests {
 
     #[tokio::test]
     async fn missing_variable_fallback_preserves_surrounding_literals() {
-        let _environment = init_env();
+        let _environment = init_env().await;
         let value = string("prefix-${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR:fallback}-suffix");
 
         let mut pr = ProviderRegistry::new();
@@ -353,14 +353,14 @@ mod tests {
 
     #[tokio::test]
     async fn returns_the_path_and_provider_error_for_a_missing_env_var() {
-        let _environment = init_env();
+        let _environment = init_env().await;
         let value = configuration("${env:PROFILED_CONFIG_TEST_MISSING_ENV_VAR}", None);
 
         let mut pr = ProviderRegistry::new();
         pr.register_provider(
             &value,
             "env",
-            &&ProviderRegistration {
+            &ProviderRegistration {
                 factory: Box::new(EnvProvider::create),
                 activation: ProviderActivation::Always,
             },
