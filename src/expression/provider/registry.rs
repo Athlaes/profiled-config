@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use serde_value::Value;
 
 use crate::expression::{
@@ -13,14 +11,12 @@ pub struct ProviderRegistration<'a> {
 }
 
 pub struct ProviderRegistry {
-    providers: HashMap<String, Box<dyn Provider>>,
+    providers: Vec<(String, Box<dyn Provider>)>,
 }
 
 impl ProviderRegistry {
     pub fn new() -> Self {
-        Self {
-            providers: HashMap::new(),
-        }
+        Self { providers: vec![] }
     }
 
     pub async fn register_provider(
@@ -29,7 +25,7 @@ impl ProviderRegistry {
         key: &str,
         registration: &ProviderRegistration<'_>,
     ) -> Result<(), ProviderError> {
-        if self.providers.contains_key(key) {
+        if self.providers.iter().any(|(name, _)| name == key) {
             return Err(ProviderError::ProviderKeyAlreadyDefined { key: key.to_owned() });
         }
         if let Value::Map(value) = config_values
@@ -43,13 +39,13 @@ impl ProviderRegistry {
                 .await
                 .map_err(|err| ProviderError::Resolve { causes: err })?;
             self.providers
-                .insert(key.to_owned(), (registration.factory)(&resolved_value).await?);
+                .push((key.to_owned(), (registration.factory)(&resolved_value).await?));
             Ok(())
         } else {
             match registration.activation {
                 ProviderActivation::Always => {
                     self.providers
-                        .insert(key.to_owned(), (registration.factory)(&Value::Option(None)).await?);
+                        .push((key.to_owned(), (registration.factory)(&Value::Option(None)).await?));
                     Ok(())
                 }
                 ProviderActivation::WhenConfigured => Ok(()),
@@ -59,8 +55,17 @@ impl ProviderRegistry {
 
     pub fn get_provider(&self, key: &str) -> Result<&dyn Provider, ProviderError> {
         self.providers
-            .get(key)
-            .map(|p| p.as_ref())
+            .iter()
+            .find(|(name, _)| name == key)
+            .map(|(_, provider)| provider.as_ref())
             .ok_or(ProviderError::ProviderNotFound { key: key.to_string() })
+    }
+
+    pub async fn get_overrides(&self) -> Result<Vec<String>, ProviderError> {
+        let mut overrides = vec![];
+        for (_, provider) in &self.providers {
+            overrides.extend(provider.get_overrides().await?);
+        }
+        Ok(overrides)
     }
 }

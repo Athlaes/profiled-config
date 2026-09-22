@@ -2,7 +2,12 @@ use include_dir::Dir;
 use serde::de::DeserializeOwned;
 
 use crate::{
-    api::LoadOptions, bootstrap::configure_providers, error::ConfigError, expression::ExpressionResolver, merge, source,
+    api::LoadOptions,
+    bootstrap::{BootstrapError, configure_providers},
+    error::ConfigError,
+    expression::ExpressionResolver,
+    merge,
+    source::{self, inline_override},
 };
 
 #[cfg(feature = "auto-cli")]
@@ -27,8 +32,16 @@ where
     let profiles = &options.profiles;
     let overrides = &options.overrides;
     let files_content = source::load_values(config_folder, profiles, overrides)?;
-    let merged_content = merge::merge_values(&files_content);
+    let mut merged_content = merge::merge_values(&files_content);
     let registry = configure_providers(&merged_content, options.additional_providers).await?;
+    let provider_overrides = &registry
+        .get_overrides()
+        .await
+        .map_err(BootstrapError::ProviderConfiguration)?;
+    let provider_overrides_value = inline_override::load(provider_overrides)?;
+    if let Some(v) = provider_overrides_value {
+        merged_content = merge::merge_values(&[merged_content, v])
+    }
     let resolver = ExpressionResolver::new(&registry);
     let processed_content = resolver
         .process(&merged_content)

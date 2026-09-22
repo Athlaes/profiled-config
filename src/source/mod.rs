@@ -7,7 +7,7 @@ use serde_value::Value;
 use crate::error::LoaderError;
 
 mod embedded;
-mod inline_override;
+pub mod inline_override;
 mod runtime_file;
 
 pub fn load_values(

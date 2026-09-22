@@ -60,8 +60,10 @@ config/default.*
 config/<profile>.*
 ./overrides.*
 --overrides <path>=<value>
-provider expressions (env, Vault, custom)
+provider overrides (Vault, custom)
 ```
+
+Provider expressions (env, Vault, custom) are resolved after these layers merge.
 
 ```toml
 # config/development.toml
@@ -122,6 +124,7 @@ password = "${vault:apps/my-service/password}"
 [profiled_config.providers.vault]
 url = "${env:VAULT_ADDR}"
 mount = "secret"
+overrides_paths = []
 
 [profiled_config.providers.vault.auth.Token]
 token = "${env:VAULT_TOKEN}"
@@ -143,6 +146,53 @@ secret_id = "${env:VAULT_SECRET_ID}"
 
 Vault is initialized automatically when its configuration is present;
 no `add_provider` call is needed.
+
+### Vault overrides
+
+Use `overrides_paths` to load configuration overrides from KV v2 secrets.
+Set it on the provider table, alongside `url` and `mount`:
+
+```toml
+[profiled_config.providers.vault]
+url = "${env:VAULT_ADDR}"
+mount = "secret"
+overrides_paths = ["apps/my-service/overrides", "apps/my-service/production"]
+
+[profiled_config.providers.vault.auth.Token]
+token = "${env:VAULT_TOKEN}"
+```
+
+Paths are relative to the configured mount; omit `secret/` and `/data/`.
+Each secret must contain a flat map of configuration paths to string values.
+For example, store this at `apps/my-service/overrides`:
+
+```json
+{
+  "port": "9090",
+  "features.cache": "true",
+  "database.password": "${vault:apps/my-service/password}"
+}
+```
+
+Then store this at `apps/my-service/production`:
+
+```json
+{
+  "port": "9091"
+}
+```
+
+Secrets are applied in list order, so the final `port` is `9091` and the
+other values from the first secret are kept. Vault overrides take precedence
+over files and CLI overrides. Dotted keys target nested configuration fields;
+values are parsed as JSON when possible, so `port` is a number and
+`features.cache` is a boolean. Expressions in override values are resolved
+after merging, so `database.password` becomes `s3cr3t` with the secret above.
+
+This also works with AppRole authentication. The authenticated identity must
+be able to read every listed secret; a missing or unreadable secret stops
+loading. `overrides_paths` is optional and defaults to an empty list. Omit it
+or set `overrides_paths = []` when no Vault overrides are needed.
 
 ## Formats
 

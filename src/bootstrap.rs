@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use serde_value::Value;
 use thiserror::Error;
 
@@ -16,7 +14,7 @@ pub enum BootstrapError {
 
 pub async fn configure_providers<'a>(
     merged_values: &Value,
-    additional_providers: HashMap<String, ProviderRegistration<'a>>,
+    additional_providers: Vec<(String, ProviderRegistration<'a>)>,
 ) -> Result<ProviderRegistry, BootstrapError> {
     let mut pr = ProviderRegistry::new();
     pr.register_provider(

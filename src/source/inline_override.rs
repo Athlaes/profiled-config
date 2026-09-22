@@ -17,10 +17,7 @@ pub fn load(overrides: &[String]) -> Result<Option<Value>, LoaderError> {
             .ok_or_else(|| LoaderError::ParseError(format!("Config arg {} missing '='", override_str)))?;
         let keys = key.split('.').collect::<Vec<&str>>();
         if keys.iter().any(|key| key.is_empty()) {
-            return Err(LoaderError::ParseError(format!(
-                "Config arg {} missing key",
-                override_str
-            )));
+            return Err(LoaderError::ParseError(format!("Config arg {} missing key", key)));
         }
         update_map(&mut root, &keys, parse_value(value));
     }

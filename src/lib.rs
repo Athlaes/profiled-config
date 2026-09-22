@@ -18,11 +18,13 @@ mod source;
 pub use api::LoadOptions;
 pub use api::ProfiledConfigArgs;
 pub use error::ConfigError;
+pub use expression::provider::OverridesFuture;
 pub use expression::provider::Provider;
 pub use expression::provider::ProviderActivation;
 pub use expression::provider::ProviderError;
 pub use expression::provider::ProviderFactoryClosure;
 pub use expression::provider::ProviderFactoryFuture;
+pub use expression::provider::ResolveFuture;
 
 #[cfg(feature = "macros")]
 pub use profiled_config_macros::profiled_config;

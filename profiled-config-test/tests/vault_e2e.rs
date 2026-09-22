@@ -1,7 +1,7 @@
 use std::ffi::OsStr;
 
 use testcontainers::{
-    GenericImage, ImageExt,
+    ContainerAsync, GenericImage, ImageExt,
     core::{ContainerPort, WaitFor},
     runners::AsyncRunner,
 };
@@ -9,8 +9,7 @@ use tokio::process::Command;
 use vaultrs::client::{VaultClient, VaultClientSettingsBuilder};
 use vaultrs::{api::auth::approle::requests::SetAppRoleRequest, auth::approle, sys};
 
-#[tokio::test]
-async fn vault_config_should_work() {
+async fn setup_vault() -> (ContainerAsync<GenericImage>, u16, VaultClient) {
     let port = ContainerPort::Tcp(8200);
     let container = GenericImage::new("hashicorp/vault", "1.21")
         .with_exposed_port(port)
@@ -30,7 +29,6 @@ async fn vault_config_should_work() {
         .unwrap_or_else(|err| panic!("{err}"));
     let address = format!("http://{host}:{port}");
 
-    // Préparer le secret de test.
     let client = VaultClient::new(
         VaultClientSettingsBuilder::default()
             .address(&address)
@@ -50,6 +48,13 @@ async fn vault_config_should_work() {
     )
     .await
     .unwrap_or_else(|err| panic!("{err}"));
+
+    (container, port, client)
+}
+
+#[tokio::test]
+async fn vault_config_should_work() {
+    let (_container, port, _client) = setup_vault().await;
 
     let output = Command::new(env!("CARGO_BIN_EXE_vault_e2e"))
         .env("VAULT_PORT", OsStr::new(&port.to_string()))
@@ -65,45 +70,50 @@ async fn vault_config_should_work() {
 }
 
 #[tokio::test]
-async fn vault_app_role_config_should_work() {
-    let port = ContainerPort::Tcp(8200);
-    let container = GenericImage::new("hashicorp/vault", "1.21")
-        .with_exposed_port(port)
-        .with_wait_for(WaitFor::message_on_stdout(
-            "Development mode should NOT be used in production",
-        ))
-        .with_env_var("VAULT_DEV_ROOT_TOKEN_ID", "dev-only-token")
-        .with_cmd(["server", "-dev", "-dev-listen-address=0.0.0.0:8200"])
-        .start()
-        .await
-        .unwrap_or_else(|err| panic!("{err}"));
+async fn vault_overrides_config_should_work() {
+    let (_container, port, client) = setup_vault().await;
 
-    let host = container.get_host().await.unwrap_or_else(|err| panic!("{err}"));
-    let port = container
-        .get_host_port_ipv4(port)
-        .await
-        .unwrap_or_else(|err| panic!("{err}"));
-    let address = format!("http://{host}:{port}");
-
-    let client = VaultClient::new(
-        VaultClientSettingsBuilder::default()
-            .address(&address)
-            .token("dev-only-token")
-            .build()
-            .unwrap(),
+    vaultrs::kv2::set(
+        &client,
+        "secret",
+        "profiled_config/overrides",
+        &serde_json::json!({
+            "test.overrides": "value_from_first_path",
+            "test.overrided": "true",
+            "test.value": "${vault:profiled_config/vault/vault_value}",
+            "test.retries": "3"
+        }),
     )
+    .await
     .unwrap_or_else(|err| panic!("{err}"));
 
     vaultrs::kv2::set(
         &client,
         "secret",
-        "profiled_config/vault",
+        "profiled_config/overrides_priority",
         &serde_json::json!({
-            "vault_value": "value_set_in_kv2"
+            "test.overrides": "value_from_last_path"
         }),
     )
     .await
     .unwrap_or_else(|err| panic!("{err}"));
+
+    let output = Command::new(env!("CARGO_BIN_EXE_vault_overrides_e2e"))
+        .env("VAULT_PORT", OsStr::new(&port.to_string()))
+        .output()
+        .await
+        .unwrap_or_else(|err| panic!("{err}"));
+
+    assert!(
+        output.status.success(),
+        "Execution failed with error : {}",
+        String::from_utf8_lossy(&output.stderr)
+    )
+}
+
+#[tokio::test]
+async fn vault_app_role_config_should_work() {
+    let (_container, port, client) = setup_vault().await;
 
     sys::auth::enable(&client, "approle", "approle", None)
         .await

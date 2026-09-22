@@ -1,5 +1,3 @@
-use std::collections::{HashMap, hash_map::Entry};
-
 use crate::{
     Provider,
     expression::provider::{ProviderError, registry::ProviderRegistration},
@@ -16,7 +14,7 @@ pub struct ProfiledConfigArgs {
 pub struct LoadOptions<'a> {
     pub profiles: Vec<String>,
     pub overrides: Vec<String>,
-    pub(crate) additional_providers: HashMap<String, ProviderRegistration<'a>>,
+    pub(crate) additional_providers: Vec<(String, ProviderRegistration<'a>)>,
 }
 
 impl<'a> LoadOptions<'a> {
@@ -24,23 +22,23 @@ impl<'a> LoadOptions<'a> {
         Self {
             profiles,
             overrides,
-            additional_providers: HashMap::new(),
+            additional_providers: vec![],
         }
     }
 
     pub fn add_provider<P: Provider>(&mut self) -> Result<(), ProviderError> {
         let key = P::key();
-        match self.additional_providers.entry(key) {
-            Entry::Occupied(entry) => Err(ProviderError::ProviderKeyAlreadyDefined {
-                key: entry.key().clone(),
-            }),
-            Entry::Vacant(entry) => {
-                entry.insert(ProviderRegistration {
+        if let Some((name, _)) = self.additional_providers.iter().find(|(name, _)| name == &key) {
+            Err(ProviderError::ProviderKeyAlreadyDefined { key: name.clone() })
+        } else {
+            self.additional_providers.push((
+                key,
+                ProviderRegistration {
                     factory: Box::new(|values| P::create(values)),
                     activation: P::activation(),
-                });
-                Ok(())
-            }
+                },
+            ));
+            Ok(())
         }
     }
 }
@@ -50,7 +48,7 @@ impl<'a> From<ProfiledConfigArgs> for LoadOptions<'a> {
         Self {
             profiles: value.profiles,
             overrides: value.overrides,
-            additional_providers: HashMap::new(),
+            additional_providers: vec![],
         }
     }
 }
