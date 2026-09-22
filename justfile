@@ -7,10 +7,10 @@ build:
 test:
     cargo test --workspace --all-features --locked
 
-coverage:
+report:
     cargo llvm-cov --workspace --all-features --locked --lcov --output-path lcov.info
 
-check-coverage: coverage
+coverage: report
     cargo llvm-cov report --locked --fail-under-lines 80
 
 clippy:
