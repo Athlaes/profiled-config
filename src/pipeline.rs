@@ -40,7 +40,7 @@ where
         .map_err(BootstrapError::ProviderConfiguration)?;
     let provider_overrides_value = inline_override::load(provider_overrides)?;
     if let Some(v) = provider_overrides_value {
-        merged_content = merge::merge_values(&vec![merged_content, v])
+        merged_content = merge::merge_values(&[merged_content, v])
     }
     let resolver = ExpressionResolver::new(&registry);
     let processed_content = resolver

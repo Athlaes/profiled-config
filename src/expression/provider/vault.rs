@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::Deserialize;
 use serde_value::Value;
@@ -18,6 +18,7 @@ struct VaultConfig {
     url: String,
     mount: String,
     auth: VaultAuth,
+    #[serde(default)]
     overrides_paths: Vec<String>,
 }
 
@@ -62,7 +63,7 @@ impl Provider for VaultProvider {
                     role_id,
                     secret_id,
                 } => {
-                    approle::login(&client, &mount, &role_id, &secret_id)
+                    approle::login(&client, mount, role_id, secret_id)
                         .await
                         .map_err(|err| ProviderError::Init(format!("Vault AppRole authentication failed: {err}")))?
                         .client_token
@@ -93,7 +94,7 @@ impl Provider for VaultProvider {
                 .map_err(|err| {
                     fail(format!(
                         "Failed to read Vault secret '{path}' from mount '{}': {err}",
-                        &self.config.mount
+                        self.config.mount
                     ))
                 })?;
 
@@ -119,12 +120,12 @@ impl Provider for VaultProvider {
         Box::pin(async {
             let mut overrides = Vec::new();
             for path in &self.config.overrides_paths {
-                let values = kv2::read::<HashMap<String, String>>(&self.client, &self.config.mount, path)
+                let values = kv2::read::<BTreeMap<String, String>>(&self.client, &self.config.mount, path)
                     .await
                     .map_err(|err| {
                         ProviderError::Init(format!(
                             "Failed to read Vault secret '{path}' from mount '{}': {err}",
-                            &self.config.mount
+                            self.config.mount
                         ))
                     })?;
                 overrides.extend(values.into_iter().map(|(key, value)| format!("{key}={value}")));

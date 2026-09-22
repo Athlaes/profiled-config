@@ -1744,7 +1744,7 @@ version = "0.4.0-SNAPSHOT"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.119",
+ "syn 3.0.6",
 ]
 
 [[package]]
