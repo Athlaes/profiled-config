@@ -16,7 +16,7 @@
 
 - [X] Add asynchronous configuration loading.
 - [X] Provide user ability to add custom provider
-- [ ] Add a two-phase bootstrap process for provider configuration & add Vault as the first optional provider behind a Cargo feature.
+- [X] Add a two-phase bootstrap process for provider configuration & add Vault as the first optional provider behind a Cargo feature.
 
 ## Later
 

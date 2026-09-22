@@ -28,6 +28,8 @@ pub enum ProviderError {
 
 pub type ResolveFuture<'a> = Pin<Box<dyn Future<Output = Result<String, ProviderError>> + 'a>>;
 
+pub type OverridesFuture<'a> = Pin<Box<dyn Future<Output = Result<Vec<String>, ProviderError>> + 'a>>;
+
 pub type ProviderFactoryFuture<'a> = Pin<Box<dyn Future<Output = Result<Box<dyn Provider>, ProviderError>> + 'a>>;
 
 pub type ProviderFactoryClosure<'a> = Box<dyn Fn(&Value) -> ProviderFactoryFuture<'a>>;
@@ -51,4 +53,9 @@ pub trait Provider {
         Self: Sized;
 
     fn resolve<'a>(&'a self, key: &'a str) -> ResolveFuture<'a>;
+
+    fn get_overrides<'a>(&'a self) -> OverridesFuture<'a> {
+        let future = async { Ok(vec![]) };
+        Box::pin(future)
+    }
 }

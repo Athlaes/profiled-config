@@ -63,4 +63,12 @@ impl ProviderRegistry {
             .map(|p| p.as_ref())
             .ok_or(ProviderError::ProviderNotFound { key: key.to_string() })
     }
+
+    pub async fn get_overrides(&self) -> Result<Vec<String>, ProviderError> {
+        let mut overrides = vec![];
+        for (_, provider) in &self.providers {
+            overrides.extend(provider.get_overrides().await?);
+        }
+        Ok(overrides)
+    }
 }
