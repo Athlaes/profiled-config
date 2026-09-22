@@ -9,3 +9,9 @@ coverage:
 
 clippy:
     cargo clippy --workspace --all-targets --all-features --locked
+
+upgrade:
+    cargo upgrade
+
+upgrade-incompatible:
+    cargo upgrade --incompatible
