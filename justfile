@@ -20,12 +20,8 @@ coverage: report
 clippy:
     cargo clippy --workspace --all-targets --all-features --locked
 
-# Need cargo-edit bin to execute
-# `cargo install cargo-edit`
 upgrade:
     cargo upgrade
 
-# Need cargo-edit bin to execute
-# `cargo install cargo-edit`
 upgrade-incompatible:
     cargo upgrade --incompatible
