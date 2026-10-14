@@ -1,3 +1,7 @@
+# Prerequisites
+# cargo install cargo-edit
+# cargo install cargo-llvm-cov --locked
+# rustup component add llvm-tools-preview
 [windows]
 set shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
