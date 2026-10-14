@@ -17,10 +17,7 @@ pub fn profiled_config(attr: TokenStream, item: TokenStream) -> TokenStream {
         .into()
 }
 
-fn expand_profiled_config(
-    function: ItemFn,
-    args: ProfiledConfigArgs,
-) -> syn::Result<proc_macro2::TokenStream> {
+fn expand_profiled_config(function: ItemFn, args: ProfiledConfigArgs) -> syn::Result<proc_macro2::TokenStream> {
     if function.sig.ident != "main" {
         return Err(syn::Error::new(
             function.sig.ident.span(),
@@ -75,6 +72,15 @@ fn expand_profiled_config(
         }
     });
 
+    let f_to_call = match is_async {
+        true => quote! {
+            profiled_config::load_config_async!();
+        },
+        false => quote! {
+            profiled_config::load_config!();
+        },
+    };
+
     Ok(quote! {
         #asyncness fn #inner_name(
             #config_pattern: #config_type
@@ -86,7 +92,7 @@ fn expand_profiled_config(
         #visibility #asyncness fn main() #output {
             #before_load
 
-            let config: #config_type = profiled_config::load_config!();
+            let config: #config_type = #f_to_call;
 
             #call
         }

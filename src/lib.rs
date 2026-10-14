@@ -1,69 +1,37 @@
-use std::fmt::Display;
-
-use clap::Parser;
-use include_dir::Dir;
-
 #[doc(hidden)]
 pub use include_dir;
+#[doc(hidden)]
+pub use tokio;
+
+#[doc(hidden)]
+pub use pipeline::load_config_from_dir_with;
+
+mod api;
+mod bootstrap;
+mod error;
+mod expression;
+mod format;
+mod merge;
+mod pipeline;
+mod source;
+
+pub use api::LoadOptions;
+pub use api::ProfiledConfigArgs;
+pub use error::ConfigError;
+pub use expression::provider::OverridesFuture;
+pub use expression::provider::Provider;
+pub use expression::provider::ProviderActivation;
+pub use expression::provider::ProviderError;
+pub use expression::provider::ProviderFactoryClosure;
+pub use expression::provider::ProviderFactoryFuture;
+pub use expression::provider::ResolveFuture;
+
 #[cfg(feature = "macros")]
 pub use profiled_config_macros::profiled_config;
 
-use serde_core::de::DeserializeOwned;
-
-mod loader;
-mod merger;
-mod processor;
-
-#[derive(Debug)]
-enum ConfigError {
-    FileNotFound(String),
-    ContentUtf8Error(String),
-    ParseError(String),
-    DuplicateProfile(String),
-    NotSupportedExtension(String),
-    ExtensionNotFound(String),
-}
-
-impl Display for ConfigError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ConfigError::FileNotFound(error) => write!(f, "{error}"),
-            ConfigError::ContentUtf8Error(error) => write!(f, "{error}"),
-            ConfigError::ParseError(error) => write!(f, "{error}"),
-            ConfigError::DuplicateProfile(error) => write!(f, "{error}"),
-            ConfigError::NotSupportedExtension(error) => write!(f, "{error}"),
-            ConfigError::ExtensionNotFound(error) => write!(f, "{error}"),
-        }
-    }
-}
-
-#[derive(Parser)]
-#[command(version, about, long_about = "")]
-struct ConfigArgs {
-    #[arg(short, long, value_delimiter = ',')]
-    profiles: Vec<String>,
-}
-
-#[macro_export]
-macro_rules! load_config {
-    () => {{
-        use $crate::include_dir;
-
-        static CONFIG_FOLDER: include_dir::Dir<'static> =
-            include_dir::include_dir!("$CARGO_MANIFEST_DIR/config");
-
-        $crate::load_config_from_dir(&CONFIG_FOLDER)
-    }};
-}
-
+#[cfg(feature = "auto-cli")]
 #[doc(hidden)]
-pub fn load_config_from_dir<T>(config_folder: &Dir<'_>) -> T
-where
-    T: DeserializeOwned,
-{
-    let profiles = ConfigArgs::parse().profiles;
-    let files_content = loader::load_values(config_folder, &profiles);
-    let merged_content = merger::merge_values(&files_content);
-    let processed_content = processor::compute_any(&merged_content);
-    T::deserialize(processed_content).expect("Couldn't deserialize configuration")
-}
+mod cli;
+#[doc(hidden)]
+#[cfg(feature = "auto-cli")]
+pub use pipeline::load_config_from_dir;

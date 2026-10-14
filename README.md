@@ -1,306 +1,336 @@
 # profiled-config
 
-[![CI](https://github.com/Athlaes/profiled-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/Athlaes/profiled-rust/actions/workflows/ci.yml)
+[![CI](https://github.com/Athlaes/profiled-config/actions/workflows/ci.yml/badge.svg)](https://github.com/Athlaes/profiled-config/actions/workflows/ci.yml)
 
-`profiled-config` is a small Rust library for typed, profile-based
-configuration, inspired by Spring profiles. Configuration files can use TOML,
-JSON, YAML, or INI.
-
-Configuration files are embedded in the application binary at compile time. At
-startup, the library loads the default configuration, applies the selected
-profiles in order, resolves environment variables, and deserializes the result
-into a Rust type.
+Typed, layered configuration for Rust. Defaults are embedded in the binary;
+profiles and overrides are selected at startup.
 
 > [!WARNING]
-> The project is still at an early stage. The API may change, and the crate is
-> not yet recommended for production use.
-
-## Features
-
-- TOML, JSON, YAML, or INI configuration embedded directly in the application
-  binary
-- strongly typed configuration through Serde
-- one or more profiles selected from the command line
-- predictable, ordered profile merging
-- environment variable interpolation
-- optional fallback values for environment variables
-- a `#[profiled_config]` attribute for synchronous and asynchronous entry
-  points
-
-## Installation
-
-Add the library from crates.io and enable the `macros` feature:
-
-```shell
-cargo add profiled_config --features macros
-```
-
-TOML support is enabled by default. The other formats are opt-in Cargo
-features:
-
-| Format | File extensions | Cargo feature | Enabled by default |
-| --- | --- | --- | --- |
-| TOML | `.toml` | `toml` | Yes |
-| JSON | `.json` | `json` | No |
-| YAML | `.yaml`, `.yml` | `yaml` | No |
-| INI | `.ini` | `ini` | No |
-
-Enable every format alongside the attribute macro with:
-
-```shell
-cargo add profiled_config --features macros,json,yaml,ini
-```
-
-At least one format feature must be enabled for configuration loading. INI is
-limited by its format: keys and values are read as strings, and sequences are
-not supported.
+> This project is experimental and not yet recommended for production.
 
 ## Quick start
 
-Create a `config/default.toml` file at the root of your application:
+```shell
+cargo add profiled_config
+cargo add serde --features derive
+```
 
 ```toml
-app_name = "my-service"
+# config/default.toml
+name = "my-service"
 port = 8080
 
 [database]
-url = "${DATABASE_URL:postgres://localhost/my-service}"
+url = "${env:DATABASE_URL:postgres://localhost/my-service}"
 ```
-
-Define a matching Rust type and add `#[profiled_config]` to `main`:
 
 ```rust
 use profiled_config::profiled_config;
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
-struct AppConfig {
-    app_name: String,
+#[derive(Deserialize)]
+struct Config {
+    name: String,
     port: u16,
-    database: DatabaseConfig,
+    database: Database,
 }
 
-#[derive(Debug, Deserialize)]
-struct DatabaseConfig {
+#[derive(Deserialize)]
+struct Database {
     url: String,
 }
 
 #[profiled_config]
-fn main(config: AppConfig) {
-    println!("Starting {} on port {}", config.app_name, config.port);
+fn main(config: Config) {
+    println!("{} listens on {}", config.name, config.port);
 }
 ```
-
-The annotated `main` function must take the configuration as its only argument.
-`profiled-config` loads and deserializes the configuration before calling it.
-
-Run the application normally to use `config/default.toml`:
 
 ```shell
 cargo run
+# my-service listens on 8080
 ```
 
-Because the `config` directory is embedded at compile time, configuration file
-changes require rebuilding the application.
+## Profiles and overrides
 
-## Using profiles
-
-Add one configuration file per profile next to the default file:
+Sources are applied from top to bottom; the last value wins:
 
 ```text
-config/
-├── default.toml
-├── development.json
-└── local.yaml
+config/default.*
+config/<profile>.*
+./overrides.*
+--overrides <path>=<value>
+provider overrides (Vault, custom)
 ```
 
-Formats can be mixed as long as their Cargo features are enabled. Each profile
-name must be unique: do not create both `development.toml` and
-`development.json`, for example.
+Provider expressions (env, Vault, custom) are resolved after these layers merge.
 
-For example, `config/development.json` can override only the values needed for
-development:
-
-```json
-{
-  "port": 3000,
-  "database": {
-    "url": "postgres://localhost/my-service-dev"
-  }
-}
+```toml
+# config/development.toml
+port = 3000
 ```
 
-Select profiles with `--profiles` (or `-p`):
+```toml
+# overrides.toml
+port = 4000
+```
 
 ```shell
 cargo run -- --profiles development
+# port = 4000
+
+cargo run -- --profiles development --overrides port=9090
+# port = 9090
 ```
 
-Multiple profiles can be provided as a comma-separated list:
+Profiles and CLI overrides can be chained:
 
 ```shell
 cargo run -- --profiles development,local
+cargo run -- --overrides server.port=9090,features.cache=true
+cargo run -- --overrides server.port=9090 --overrides features.cache=true
 ```
 
-The files are applied from left to right:
+Maps merge recursively. Scalars and arrays are replaced. CLI values are parsed
+as JSON scalars, so `true` and `9090` keep their types.
 
-1. `default.toml`
-2. `development.json`
-3. `local.yaml`
-
-Later profiles override earlier ones. Objects or tables are merged recursively;
-scalar values and arrays are replaced. A selected profile that cannot be loaded
-is logged and skipped. The default profile is required and stops loading when
-it is missing, ambiguous, invalid, or uses a format whose feature is disabled.
-
-## Environment variables
-
-Environment expressions can be used in any string value, including strings
-nested in objects, tables, or arrays.
-
-Use `${VARIABLE}` when the variable is required:
+## Environment expressions
 
 ```toml
-api_key = "${API_KEY}"
+required = "${env:API_TOKEN}"
+with_fallback = "${env:HOST:localhost}"
+inside_a_string = "https://${env:HOST:localhost}:${env:PORT:8080}"
+from_json = "${env:SERVICE_JSON(jsonpath:$.host):localhost}"
 ```
 
-Use `${VARIABLE:fallback}` to provide a value when the variable is not set:
+A missing value without a fallback stops loading.
 
-```toml
-host = "${HOST:127.0.0.1}"
-```
+## Vault secrets
 
-Loading fails if a required environment variable is missing.
-
-## Macro attributes
-
-The `#[profiled_config]` macro currently supports one optional attribute:
-`before_load`.
-
-### `before_load`
-
-`before_load` specifies a synchronous, zero-argument function to call
-immediately before command-line arguments and configuration files are loaded.
-It is useful for setting up logging or preparing environment variables needed
-by the configuration.
-
-```rust
-use profiled_config::profiled_config;
-use serde::Deserialize;
-
-#[derive(Deserialize)]
-struct AppConfig {
-    app_name: String,
-}
-
-fn initialize() {
-    env_logger::init();
-}
-
-#[profiled_config(before_load = initialize)]
-fn main(config: AppConfig) {
-    println!("{}", config.app_name);
-}
-```
-
-A qualified function path is also accepted:
-
-```rust
-#[profiled_config(before_load = startup::initialize)]
-fn main(config: AppConfig) {
-    // ...
-}
-```
-
-No other macro attributes are currently available. Unknown attributes and
-additional tokens produce a compile-time error.
-
-## Async runtimes
-
-The macro supports `async fn main` and preserves other attributes placed below
-it. This allows runtime macros to be used on the generated entry point:
-
-```rust
-#[profiled_config(before_load = initialize)]
-#[tokio::main]
-async fn main(config: AppConfig) {
-    // ...
-}
-```
-
-Keep `#[profiled_config]` above the runtime attribute.
-
-## Loading without the attribute macro
-
-The configuration can also be loaded directly. In that case, the `macros`
-feature is not required (this command keeps the default TOML support):
+Enable Vault support:
 
 ```shell
-cargo add profiled_config
+cargo add profiled_config --features vault
+```
+
+For a KV v2 secret at `apps/my-service` in the `secret` mount, containing
+`{"password":"s3cr3t"}`:
+
+```toml
+# config/default.toml
+[database]
+password = "${vault:apps/my-service/password}"
+
+[profiled_config.providers.vault]
+url = "${env:VAULT_ADDR}"
+mount = "secret"
+overrides_paths = []
+
+[profiled_config.providers.vault.auth.Token]
+token = "${env:VAULT_TOKEN}"
+```
+
+`${vault:<secret-path>/<field>}` reads one field; omit the mount and `/data/`
+from the expression. Here, `database.password` becomes `s3cr3t`.
+For a JSON object field, select a nested value with
+`${vault:apps/my-service/credentials(jsonpath:$.password)}`.
+
+For AppRole authentication, replace the `auth.Token` table with:
+
+```toml
+[profiled_config.providers.vault.auth.AppRole]
+mount = "approle"
+role_id = "${env:VAULT_ROLE_ID}"
+secret_id = "${env:VAULT_SECRET_ID}"
+```
+
+Vault is initialized automatically when its configuration is present;
+no `add_provider` call is needed.
+
+### Vault overrides
+
+Use `overrides_paths` to load configuration overrides from KV v2 secrets.
+Set it on the provider table, alongside `url` and `mount`:
+
+```toml
+[profiled_config.providers.vault]
+url = "${env:VAULT_ADDR}"
+mount = "secret"
+overrides_paths = ["apps/my-service/overrides", "apps/my-service/production"]
+
+[profiled_config.providers.vault.auth.Token]
+token = "${env:VAULT_TOKEN}"
+```
+
+Paths are relative to the configured mount; omit `secret/` and `/data/`.
+Each secret must contain a flat map of configuration paths to string values.
+For example, store this at `apps/my-service/overrides`:
+
+```json
+{
+  "port": "9090",
+  "features.cache": "true",
+  "database.password": "${vault:apps/my-service/password}"
+}
+```
+
+Then store this at `apps/my-service/production`:
+
+```json
+{
+  "port": "9091"
+}
+```
+
+Secrets are applied in list order, so the final `port` is `9091` and the
+other values from the first secret are kept. Vault overrides take precedence
+over files and CLI overrides. Dotted keys target nested configuration fields;
+values are parsed as JSON when possible, so `port` is a number and
+`features.cache` is a boolean. Expressions in override values are resolved
+after merging, so `database.password` becomes `s3cr3t` with the secret above.
+
+This also works with AppRole authentication. The authenticated identity must
+be able to read every listed secret; a missing or unreadable secret stops
+loading. `overrides_paths` is optional and defaults to an empty list. Omit it
+or set `overrides_paths = []` when no Vault overrides are needed.
+
+## Formats
+
+JSON is always available. TOML is enabled by default.
+
+```shell
+cargo add profiled_config --features yaml,ini
+```
+
+Profiles may mix `.json`, `.toml`, `.yaml`, `.yml`, and `.ini` files. INI
+supports string keys and values only.
+
+## Without the attribute macro
+
+The default `auto-cli` mode still reads `--profiles` and `--overrides`:
+
+```rust
+fn main() {
+    let config: Config = profiled_config::load_config!();
+}
+```
+
+Run setup code before loading with `before_load`:
+
+```rust
+#[profiled_config(before_load = initialize_logging)]
+#[tokio::main]
+async fn main(config: Config) {
+    // ...
+}
+```
+
+## Existing Clap application
+
+Disable the default attribute macro and `auto-cli`; keep the format you use:
+
+```shell
+cargo add profiled_config --no-default-features --features toml
+cargo add clap --features derive
+cargo add serde --features derive
+```
+
+Flatten the configuration arguments into your parser, then load explicitly:
+
+```rust
+use clap::Parser;
+use profiled_config::{LoadOptions, ProfiledConfigArgs};
+
+#[derive(Parser)]
+struct Cli {
+    #[arg(long)]
+    verbose: bool,
+
+    #[command(flatten)]
+    config: ProfiledConfigArgs,
+}
+
+fn main() -> Result<(), profiled_config::ConfigError> {
+    let cli = Cli::parse();
+    let options: LoadOptions = cli.config.into();
+    let config: Config = profiled_config::try_load_config!(options)?;
+
+    if cli.verbose {
+        println!("{}:{}", config.name, config.port);
+    }
+
+    Ok(())
+}
+```
+
+`macros` enables the `#[profiled_config]` attribute; `load_config!` and
+`try_load_config!` remain available without it.
+
+## Custom providers
+
+Implement `Provider`, then register it in `LoadOptions` before loading.
+This example exposes values from a configuration table as `${local:<key>}`:
+
+```shell
+cargo add serde-value
+```
+
+```toml
+# config/default.toml
+name = "${local:service_name}"
+
+[profiled_config.providers.local]
+service_name = "my-service"
 ```
 
 ```rust
-use serde::Deserialize;
+use std::{collections::BTreeMap, future::Future, pin::Pin};
+use profiled_config::{
+    LoadOptions, Provider, ProviderActivation, ProviderError, ProviderFactoryFuture,
+};
+use serde_value::Value;
 
-#[derive(Deserialize)]
-struct AppConfig {
-    app_name: String,
-}
+struct LocalProvider(BTreeMap<String, String>);
 
-fn main() {
-    let config: AppConfig = profiled_config::load_config!();
-    println!("{}", config.app_name);
+impl Provider for LocalProvider {
+    fn key() -> String { "local".into() }
+
+    fn activation() -> ProviderActivation { ProviderActivation::WhenConfigured }
+
+    fn create<'a>(values: &Value) -> ProviderFactoryFuture<'a> {
+        let values = values.clone().deserialize_into::<BTreeMap<String, String>>();
+        Box::pin(async move {
+            let values = values.map_err(|err| ProviderError::Init(err.to_string()))?;
+            Ok(Box::new(Self(values)) as Box<dyn Provider>)
+        })
+    }
+
+    fn resolve<'a>(&'a self, key: &'a str)
+        -> Pin<Box<dyn Future<Output = Result<String, ProviderError>> + 'a>>
+    {
+        Box::pin(async move {
+            self.0.get(key).cloned().ok_or_else(|| ProviderError::VariableNotFound {
+                key: key.into(),
+                cause_str: "Unknown local key".into(),
+            })
+        })
+    }
 }
 ```
 
-## How loading works
+`create` receives the provider's table after its expressions are resolved;
+`resolve` receives the key after `local:`. `WhenConfigured` requires that table;
+use `Always` for a provider that can initialize without one.
 
-At startup, `profiled-config`:
+Register it when loading your `Config`:
 
-1. finds the embedded `config/default.<extension>` file;
-2. finds each selected `<profile>.<extension>` file;
-3. merges the files in profile order;
-4. resolves environment expressions;
-5. deserializes the result into the type expected by `main`.
+```rust
+let mut options = LoadOptions::new(vec![], vec![]);
+options.add_provider::<LocalProvider>()?;
+let config: Config = profiled_config::try_load_config!(options)?;
+assert_eq!(config.name, "my-service");
+```
 
-The extension selects the parser and must have its matching Cargo feature
-enabled. Invalid default configuration, unresolved required environment
-variables, and deserialization errors stop the application with an error.
-
-## Development and releases
-
-Feature branches are merged into `develop`. Every push to `develop` produces a
-source snapshot artifact using the version declared once in
-`[workspace.package]`, such as `0.3.0-SNAPSHOT`. Both published crates inherit
-that version, which remains unchanged throughout the development cycle. The
-regular CI only reads it and never rewrites a manifest. Snapshots are retained
-by GitHub Actions for 14 days; they do not create a Git tag, a GitHub Release,
-or a crates.io version.
-
-Merging `develop` into `main` removes the `-SNAPSHOT` suffix only in the release
-checkout and creates the corresponding stable release (`0.4.0-SNAPSHOT`
-becomes `0.4.0`). The workflow also injects the crates.io version of the local
-proc-macro dependency in that checkout. Once the release is complete, it
-increments the minor component, resets the patch to zero, and updates
-`develop` once with the next workspace snapshot version (`0.5.0-SNAPSHOT`).
-Patch increments are reserved for a future hotfix workflow.
-
-Developers do not edit package versions during day-to-day work. The release
-workflow creates the `X.Y.Z` tag and GitHub Release, then publishes the
-proc-macro followed by the main crate.
-
-## Contributing and feedback
-
-Feedback, ideas, bug reports, and real-world use cases are very welcome. I hope
-to keep improving this project and let it grow with the needs of the people
-using it, so please feel free to open an issue or start a discussion—even a
-small suggestion can help shape what comes next.
-
-## License
-
-This project is available under the [MIT License](LICENCE).
-
-## Acknowledgements
-
-The project is inspired by Spring's profile-based configuration model. It is
-not affiliated with Spring and does not aim to reproduce its complete API.
+In an async function, use `try_load_config_async!(options)` instead;
+the macro awaits loading for you. With your own CLI, build `options` from
+`cli.config.into()` as above to keep profiles and overrides.

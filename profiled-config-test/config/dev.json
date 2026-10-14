@@ -1,6 +1,6 @@
 {
-    "app_version": "1.0.0-SNAPSHOT",
-    "profile": {
-        "name": "dev"
-    }
+  "app_version": "1.0.0-SNAPSHOT",
+  "profile": {
+    "name": "dev"
+  }
 }

@@ -1,14 +1,59 @@
 # Roadmap
 
-The following improvements are listed in priority order:
+## Completed
 
-- [x] Support TOML, JSON, YAML, and INI configuration files
-- [x] Replace the deprecated `serde_yaml` dependency with a maintained YAML parser
-- [ ] Parse JSON values from environment variables (compatible with Cloud Foundry's `VCAP_SERVICES`)
-- [ ] Load secrets and configuration Vault
-- [ ] Load secrets and configuration git
-- [ ] Load secrets and configuration Redis
-- [ ] Load secrets and configuration Consul
-- [ ] Improve error reporting and validation
-- [ ] Provide more examples
-- [ ] Add changelog tool in ci/cd
+- [x] **Core configuration:** embedded profiles, TOML/JSON/YAML/INI support, environment expressions, and JSONPath selection.
+- [x] **Runtime overrides:** override files, typed and nested CLI values, repeated `--overrides` arguments, deterministic precedence, and detection of ambiguous `overrides.*` files.
+- [x] **Getting started documentation:** concise installation, profile, override, environment expression, format, and macro-free examples.
+
+## Next: stabilize loading
+
+- [x] Return structured errors throughout the loading pipeline instead of logging or ignoring failures & expose a public, fallible loading API.
+- [x] Clean up the internal loader, parser, resolver, and provider module boundaries.
+- [X] Support applications that own their Clap command-line parser.
+
+## Then: prepare remote providers
+
+- [X] Add asynchronous configuration loading.
+- [X] Provide user ability to add custom provider
+- [X] Add a two-phase bootstrap process for provider configuration & add Vault as the first optional provider behind a Cargo feature.
+
+## Later
+
+- [ ] Allow vault provider to load all secrets under a specific path then merge
+- [ ] Allow the runtime override file or path to be configured.
+- [ ] Automate changelog generation.
+- [ ] Evaluate Git, Redis, and Consul integrations.
+- [ ] Add focused examples and compatibility documentation.
+- [ ] Add configuration validation hooks.
+
+## Planned Vault usage
+
+Enable the built-in provider:
+
+```toml
+profiled_config = { version = "...", features = ["macros", "vault"] }
+```
+
+Configure it in the embedded configuration, using the environment for
+credentials:
+
+```toml
+[profiled_config.providers.vault]
+address = "${env:VAULT_ADDR:http://127.0.0.1:8200}"
+token = "${env:VAULT_TOKEN}"
+mount = "secret"
+kv_version = 2
+
+[database]
+username = "${vault:applications/my-service/username:app}"
+password = "${vault:applications/my-service/password}"
+```
+
+The loader will bootstrap the Vault client from
+`[profiled_config.providers.vault]`, fetch expressions after merging the
+configuration layers, remove the reserved `profiled_config` section, and then
+deserialize the application configuration. Referencing Vault without enabling
+the feature will produce an explicit error.
+
+XPath and dedicated YAMLPath support are deferred until concrete use cases justify them.

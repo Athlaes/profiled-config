@@ -1,0 +1,10 @@
+[profiled_config.providers.vault]
+url = "http://127.0.0.1:${env:VAULT_PORT}"
+mount = "secret"
+overrides_paths = ["profiled_config/overrides", "profiled_config/overrides_priority"]
+
+[profiled_config.providers.vault.auth.Token]
+token = "dev-only-token"
+
+[test]
+vault_value = "${vault:profiled_config/vault/vault_value}"
